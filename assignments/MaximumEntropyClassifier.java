@@ -177,17 +177,13 @@ public class MaximumEntropyClassifier<I, F, L> implements
 		private Pair<Double, double[]> calculate(double[] x) {
 			double objective = 0.0;
 			double[] derivatives = DoubleArrays.constantArray(0.0, dimension());
-			// TODO: compute the objective and its derivatives
-			// TODO
+			// compute the objective and its derivatives
 
-			// logProb
-
-			// dummy code
+			// initialize
 			objective = 0.0;
 			for (int i = 0; i < derivatives.length; i++) {
 				derivatives[i] = 0.0;
 			}
-			// end dummy code
 
 			// loop each datum
 			for (int dataIndex = 0; dataIndex < data.length; dataIndex++) {
@@ -222,9 +218,12 @@ public class MaximumEntropyClassifier<I, F, L> implements
 			// derivatives
 			// penalties
 
-			// TODO
-			// TODO
-
+			double denominator = (2 * sigma * sigma);
+			objective -= DoubleArrays.innerProduct(x, x) / denominator;
+			for (int wIndex = 0; wIndex < derivatives.length; wIndex++) {
+				derivatives[wIndex] -= x[wIndex] * 2.0 / denominator;
+			}
+			
 			// negate
 			objective = -objective;
 			for (int i = 0; i < derivatives.length; i++) {
