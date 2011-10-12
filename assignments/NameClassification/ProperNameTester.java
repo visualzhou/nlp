@@ -5,10 +5,16 @@ import java.util.List;
 import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+
+import com.sun.xml.internal.rngom.binary.PatternBuilder;
+
+import sun.misc.Regexp;
 
 import nlp.assignments.MaximumEntropyClassifier;
 import nlp.assignments.MostFrequentLabelClassifier;
@@ -37,6 +43,10 @@ public class ProperNameTester {
 	public static class ProperNameFeatureExtractor implements
 			FeatureExtractor<String, String> {
 
+		Pattern specialChar = Pattern.compile("[\\W&&\\S]+");
+		Pattern digitalSuffixChar = Pattern.compile("\\d+$");
+		Pattern digitalPrefixChar = Pattern.compile("^\\d+");
+
 		/**
 		 * This method takes the list of characters representing the proper name
 		 * description, and produces a list of features which represent that
@@ -62,22 +72,169 @@ public class ProperNameTester {
 			BoundedList<String> boundedString = new BoundedList<String>(
 					charList, "<S>");
 
-			// Bi-gram
-			for (int i = 0; i <= characters.length; i++) {
-				features.incrementCount("BI-" + boundedString.get(i - 1)
+			// // Bi-gram
+			// for (int i = 0; i <= characters.length; i++) {
+			// features.incrementCount("BI-" + boundedString.get(i - 1)
+			// + boundedString.get(i), 1.0);
+			// }
+			// 3-gram
+			for (int i = 0; i < characters.length + 2; i++) {
+				features.incrementCount("TRI-" + boundedString.get(i - 2)
+						+ boundedString.get(i - 1) + boundedString.get(i), 1.0);
+			}
+			// 4-gram
+			for (int i = 0; i < characters.length + 3; i++) {
+				features.incrementCount("QUA-" + boundedString.get(i - 3)
+						+ boundedString.get(i - 2) + boundedString.get(i - 1)
 						+ boundedString.get(i), 1.0);
 			}
 			// Suffix 1-5
-			for (int i = 1; i < 5; i++) {
+			for (int i = 3; i < 6; i++) {
 				String str = "SUFFIX-";
 				for (int j = characters.length - i; j < characters.length; j++) {
 					str += boundedString.get(j);
 				}
 				features.incrementCount(str, 1.0);
 			}
+			// // Prefix
+			// String prefixPattern = "";
+			// for (int i = 0; i < 6; i++) {
+			// if (i < characters.length) {
+			// char ch = characters[i];
+			// if (Character.isLetter(ch)) {
+			// prefixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
+			// } else if (Character.isDigit(ch)) {
+			// prefixPattern += 'D';
+			// } else {
+			// prefixPattern += ch;
+			// }
+			// } else {
+			// prefixPattern += 'E';
+			// }
+			// }
+			// for (int i = 1; i < prefixPattern.length(); i++) {
+			// features.incrementCount(
+			// "PREFIX-PATTERN-" + prefixPattern.substring(0, i), 1.0);
+			// }
+			//
+			// // Suffix
+			// String suffixPattern = "";
+			// for (int i = characters.length - 1; i > characters.length - 5;
+			// i--) {
+			// if (i > 0) {
+			// char ch = characters[i];
+			// if (Character.isLetter(ch)) {
+			// suffixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
+			// } else if (Character.isDigit(ch)) {
+			// prefixPattern += 'D';
+			// } else {
+			// suffixPattern += ch;
+			// }
+			// } else {
+			// suffixPattern += 'E';
+			// }
+			// }
+			// for (int i = 1; i < suffixPattern.length(); i++) {
+			// features.incrementCount(
+			// "SUFFIX-PATTERN-" + suffixPattern.substring(0, i), 1.0);
+			// }
+
 			// Whole word
-			features.incrementCount("WORD-" + name, 1.0);
+			features.incrementCount("ALL-" + name, 1.0);
+
+			// words
+			int wordlength = 0;
+			// String[] words = name.split("[\\s,-]+");
+			String[] words = name.split("[\\W]+");
+			for (int i = 0; i < words.length; i++) {
+				String word = words[i];
+				features.incrementCount("WORD-" + word, 1.0);
+				wordlength += word.length();
+				// Suffix 1-5
+				for (int k = 3; k < 7; k++) {
+					if (word.length() - k >= 0) {
+						features.incrementCount(
+								"SUFFIX-" + word.substring(word.length() - k),
+								1.0);
+					}
+				}
+			}
+			// Arg length of words
+			if (words.length > 0) {
+				wordlength /= words.length;
+			}
+			features.incrementCount("ARG-LENGHT-" + wordlength, 1.0);
+			// Number of words
+			features.incrementCount("COUNT-WORD-" + words.length, 1.0);
+			// length
+			features.incrementCount("LENGTH-" + name.length(), 1.0);
+
+			// special character
+			Matcher m = specialChar.matcher(name);
+			if (m.find()) {
+				features.incrementCount("*SPECIAL-" + m.group(), 1.0);
+			}
+			// // digit suffix char
+			// m = digitalSuffixChar.matcher(name);
+			// if (m.find()) {
+			// features.incrementCount("*DIGITSUFFIX*", 1.0);
+			// }
+			// // digit prefix char
+			// m = digitalPrefixChar.matcher(name);
+			// if (m.find()) {
+			// features.incrementCount("*DIGITPREFIX*", 1.0);
+			// }
+//			words = name.split("\\s+");
+//			for (int i = 0; i < words.length; i++) {
+//				getPrefixSuffix(words[i], features);
+//			}
+			getPrefixSuffix(name, features);
 			return features;
+		}
+
+		private void getPrefixSuffix(String word, Counter<String> features) {
+			char[] characters = word.toCharArray();
+			// Prefix
+			String prefixPattern = "";
+			for (int i = 0; i < 6; i++) {
+				if (i < characters.length) {
+					char ch = characters[i];
+					if (Character.isLetter(ch)) {
+						prefixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
+					} else if (Character.isDigit(ch)) {
+						prefixPattern += 'D';
+					} else {
+						prefixPattern += ch;
+					}
+				} else {
+					prefixPattern += 'E';
+				}
+			}
+			for (int i = 1; i < prefixPattern.length(); i++) {
+				features.incrementCount(
+						"PREFIX-PATTERN-" + prefixPattern.substring(0, i), 1.0);
+			}
+
+			// Suffix
+			String suffixPattern = "";
+			for (int i = characters.length - 1; i > characters.length - 5; i--) {
+				if (i > 0) {
+					char ch = characters[i];
+					if (Character.isLetter(ch)) {
+						suffixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
+					} else if (Character.isDigit(ch)) {
+						prefixPattern += 'D';
+					} else {
+						suffixPattern += ch;
+					}
+				} else {
+					suffixPattern += 'E';
+				}
+			}
+			for (int i = 1; i < suffixPattern.length(); i++) {
+				features.incrementCount(
+						"SUFFIX-PATTERN-" + suffixPattern.substring(0, i), 1.0);
+			}
 		}
 	}
 
