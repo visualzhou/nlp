@@ -158,6 +158,12 @@ public class DoubleArrays {
 		return result;
 	}
 
+	public static void addon(double[] a, double b) {
+		for (int i = 0; i < a.length; i++) {
+			a[i] = a[i] + b;
+		}
+	}
+
 	public static double add(double[] a) {
 		double sum = 0.0;
 		for (int i = 0; i < a.length; i++) {
@@ -214,10 +220,10 @@ public class DoubleArrays {
 
 	public static void truncate(double[] x, double maxVal) {
 		for (int index = 0; index < x.length; index++) {
-			if (x[index] > maxVal) 
-				x[index]=maxVal;
-			else if (x[index]<-maxVal)
-				x[index]=-maxVal;
+			if (x[index] > maxVal)
+				x[index] = maxVal;
+			else if (x[index] < -maxVal)
+				x[index] = -maxVal;
 		}
 	}
 
@@ -234,5 +240,4 @@ public class DoubleArrays {
 				initialize((Object[]) o, d);
 		}
 	}
-
 }
