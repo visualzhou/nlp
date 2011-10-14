@@ -1,30 +1,23 @@
 package nlp.assignments.NameClassification;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import com.sun.xml.internal.rngom.binary.PatternBuilder;
-
-import sun.misc.Regexp;
+import com.sun.tools.javac.util.Pair;
 
 import nlp.assignments.MaximumEntropyClassifier;
 import nlp.assignments.MostFrequentLabelClassifier;
-import nlp.assignments.MaximumEntropyClassifier.Factory;
 import nlp.classify.*;
-import nlp.langmodel.LanguageModel;
 import nlp.util.BoundedList;
 import nlp.util.CommandLineUtils;
 import nlp.util.Counter;
-import nlp.util.Pair;
+import nlp.util.CounterMap;
 
 /**
  * This is the main harness for assignment 2. To run this harness, use
@@ -184,10 +177,10 @@ public class ProperNameTester {
 			// if (m.find()) {
 			// features.incrementCount("*DIGITPREFIX*", 1.0);
 			// }
-//			words = name.split("\\s+");
-//			for (int i = 0; i < words.length; i++) {
-//				getPrefixSuffix(words[i], features);
-//			}
+			// words = name.split("\\s+");
+			// for (int i = 0; i < words.length; i++) {
+			// getPrefixSuffix(words[i], features);
+			// }
 			getPrefixSuffix(name, features);
 			return features;
 		}
@@ -259,6 +252,9 @@ public class ProperNameTester {
 			List<LabeledInstance<String, String>> testData, boolean verbose) {
 		double numCorrect = 0.0;
 		double numTotal = 0.0;
+		Counter<Pair<String, String>> confusedPairCounter = new Counter<Pair<String, String>>();
+		CounterMap<Long, String> confidenceCounter = new CounterMap<Long, String>();
+
 		for (LabeledInstance<String, String> testDatum : testData) {
 			String name = testDatum.getInput();
 			String label = classifier.getLabel(name);
@@ -266,8 +262,15 @@ public class ProperNameTester {
 					label);
 			if (label.equals(testDatum.getLabel())) {
 				numCorrect += 1.0;
+				confidenceCounter.incrementCount(Math.round(confidence * 10),
+						"Y", 1.0);
 			} else {
+				confidenceCounter.incrementCount(Math.round(confidence * 10),
+						"N", 1.0);
 				if (verbose) {
+					confusedPairCounter.incrementCount(
+							new Pair<String, String>(testDatum.getLabel(),
+									label), 1.0);
 					// display an error
 					System.err.println("Error: " + name + " guess=" + label
 							+ " gold=" + testDatum.getLabel() + " confidence="
@@ -277,7 +280,13 @@ public class ProperNameTester {
 			numTotal += 1.0;
 		}
 		double accuracy = numCorrect / numTotal;
+		System.out.println(String.format("#Error: %f\t#Total: %f", numTotal
+				- numCorrect, numTotal));
 		System.out.println("Accuracy: " + accuracy);
+		if (verbose) {
+			System.out.println(confusedPairCounter.toString(5));
+			System.out.println(confidenceCounter.toString());
+		}
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -332,10 +341,18 @@ public class ProperNameTester {
 		if (model.equalsIgnoreCase("baseline")) {
 			classifier = new MostFrequentLabelClassifier.Factory<String, String>()
 					.trainClassifier(trainingData);
-		} else if (model.equalsIgnoreCase("n-gram")) {
-			// TODO: construct your n-gram model here
+		} else if (model.equalsIgnoreCase("unigram")) {
+			// construct your n-gram model here
+			ProbabilisticClassifierFactory<String, String> factory = new ClassConditionClassifier.Factory(
+					CharUnigramLanguageModel.class);
+			classifier = factory.trainClassifier(trainingData);
+		} else if (model.equalsIgnoreCase("bigram")) {
+			// construct your n-gram model here
+			ProbabilisticClassifierFactory<String, String> factory = new ClassConditionClassifier.Factory(
+					CharBigramLanguageModel.class);
+			classifier = factory.trainClassifier(trainingData);
 		} else if (model.equalsIgnoreCase("maxent")) {
-			// TODO: construct your maxent model here
+			// construct your maxent model here
 			ProbabilisticClassifierFactory<String, String> factory = new MaximumEntropyClassifier.Factory<String, String, String>(
 					1.0, 40, new ProperNameFeatureExtractor());
 			classifier = factory.trainClassifier(trainingData);
