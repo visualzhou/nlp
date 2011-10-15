@@ -82,56 +82,22 @@ public class ProperNameTester {
 						+ boundedString.get(i), 1.0);
 			}
 			// Suffix 1-5
+//			for (int i = 3; i < 6; i++) {
+//				String str = "SUFFIX-";
+//				for (int j = characters.length - i; j < characters.length; j++) {
+//					str += boundedString.get(j);
+//				}
+//				features.incrementCount(str, 1.0);
+//			}
+
+			// Prefix
 			for (int i = 3; i < 6; i++) {
-				String str = "SUFFIX-";
-				for (int j = characters.length - i; j < characters.length; j++) {
+				String str = "PREFIX-";
+				for (int j = 0; j < i; j++) {
 					str += boundedString.get(j);
 				}
 				features.incrementCount(str, 1.0);
 			}
-			// // Prefix
-			// String prefixPattern = "";
-			// for (int i = 0; i < 6; i++) {
-			// if (i < characters.length) {
-			// char ch = characters[i];
-			// if (Character.isLetter(ch)) {
-			// prefixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
-			// } else if (Character.isDigit(ch)) {
-			// prefixPattern += 'D';
-			// } else {
-			// prefixPattern += ch;
-			// }
-			// } else {
-			// prefixPattern += 'E';
-			// }
-			// }
-			// for (int i = 1; i < prefixPattern.length(); i++) {
-			// features.incrementCount(
-			// "PREFIX-PATTERN-" + prefixPattern.substring(0, i), 1.0);
-			// }
-			//
-			// // Suffix
-			// String suffixPattern = "";
-			// for (int i = characters.length - 1; i > characters.length - 5;
-			// i--) {
-			// if (i > 0) {
-			// char ch = characters[i];
-			// if (Character.isLetter(ch)) {
-			// suffixPattern += Character.isUpperCase(ch) ? 'X' : 'x';
-			// } else if (Character.isDigit(ch)) {
-			// prefixPattern += 'D';
-			// } else {
-			// suffixPattern += ch;
-			// }
-			// } else {
-			// suffixPattern += 'E';
-			// }
-			// }
-			// for (int i = 1; i < suffixPattern.length(); i++) {
-			// features.incrementCount(
-			// "SUFFIX-PATTERN-" + suffixPattern.substring(0, i), 1.0);
-			// }
-
 			// Whole word
 			features.incrementCount("ALL-" + name, 1.0);
 
@@ -147,7 +113,15 @@ public class ProperNameTester {
 				for (int k = 3; k < 7; k++) {
 					if (word.length() - k >= 0) {
 						features.incrementCount(
-								"SUFFIX-" + word.substring(word.length() - k),
+								"WORDSUFFIX-" + word.substring(word.length() - k),
+								1.0);
+					}
+				}
+				// prefix
+				for (int k = 2; k < 6; k++) {
+					if (word.length() > k) {
+						features.incrementCount(
+								"WORDPREFIX-" + word.substring(0, k),
 								1.0);
 					}
 				}
@@ -167,20 +141,6 @@ public class ProperNameTester {
 			if (m.find()) {
 				features.incrementCount("*SPECIAL-" + m.group(), 1.0);
 			}
-			// // digit suffix char
-			// m = digitalSuffixChar.matcher(name);
-			// if (m.find()) {
-			// features.incrementCount("*DIGITSUFFIX*", 1.0);
-			// }
-			// // digit prefix char
-			// m = digitalPrefixChar.matcher(name);
-			// if (m.find()) {
-			// features.incrementCount("*DIGITPREFIX*", 1.0);
-			// }
-			// words = name.split("\\s+");
-			// for (int i = 0; i < words.length; i++) {
-			// getPrefixSuffix(words[i], features);
-			// }
 			getPrefixSuffix(name, features);
 			return features;
 		}
@@ -286,6 +246,11 @@ public class ProperNameTester {
 		if (verbose) {
 			System.out.println(confusedPairCounter.toString(5));
 			System.out.println(confidenceCounter.toString());
+			confidenceCounter.normalize();
+			for (Long key : confidenceCounter.keySet()) {
+				System.out.println(String.format("%d -> %f", key,
+						confidenceCounter.getCount(key, "Y")));
+			}
 		}
 	}
 
