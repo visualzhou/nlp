@@ -1,12 +1,14 @@
 package nlp.assignments;
 
 import java.util.*;
+import java.util.PriorityQueue;
 
 import com.sun.org.apache.bcel.internal.generic.NEW;
 
 import nlp.io.PennTreebankReader;
 import nlp.ling.Tree;
 import nlp.ling.Trees;
+import nlp.math.DoubleArrays;
 import nlp.math.SloppyMath;
 import nlp.util.*;
 
@@ -293,6 +295,48 @@ public class POSTaggerTester {
 				currentState = nextState;
 			}
 			return states;
+		}
+	}
+
+	static class ViterbiDecoder<S> implements TrellisDecoder<S> {
+		public List<S> getBestPath(Trellis<S> trellis) {
+			// initialize
+			Map<S, S> brackTrace = new HashMap<S, S>();
+			Counter<S> optimal = new Counter<S>();
+			optimal.setCount(trellis.getStartState(), 0); 
+			// the first log probability
+			Queue<S> queue = new LinkedList<S>();
+			Set<S> visitedStates = new HashSet<S>();
+
+			// loop queue
+			S currentState = trellis.getStartState();
+			while (!currentState.equals(trellis.getEndState())) {
+				Counter<S> transitions = trellis
+						.getForwardTransitions(currentState);
+				for (S next : transitions.keySet()) {
+					double p = optimal.getCount(currentState)
+							+ transitions.getCount(next);
+					if (!optimal.containsKey(next)
+							|| optimal.getCount(next) < p) {
+						optimal.setCount(next, p);
+						brackTrace.put(next, currentState);
+					}
+					if (!visitedStates.contains(next)) {
+						visitedStates.add(next);
+						queue.add(next);
+					}
+				}
+				currentState = queue.remove();
+			}
+			// construct the back path
+			List<S> path = new ArrayList<S>();
+			while (!currentState.equals(trellis.getStartState())) {
+				path.add(currentState);
+				currentState = brackTrace.get(currentState);
+			}
+			path.add(trellis.getStartState());
+			Collections.reverse(path);
+			return path;
 		}
 	}
 
@@ -607,13 +651,14 @@ public class POSTaggerTester {
 	 */
 	static class TrigramTagScorer implements LocalTrigramScorer {
 
-		CounterMap<String, String> trigram = new CounterMap<String, String>();
-		// no smoothing
+		public CounterMap<String, String> trigram = new CounterMap<String, String>();
+		public CounterMap<String, String> bigram = new CounterMap<String, String>();
+		Counter<String> unigram = new Counter<String>();
 
 		CounterMap<String, String> tagtowords = new CounterMap<String, String>();
 		CounterMap<String, String> wordtotags = new CounterMap<String, String>();
-		Set<String> seenWords = new HashSet<String>();
 		Counter<String> unknownWordTags = new Counter<String>();
+		double[] lambda = new double[3];
 
 		@Override
 		public Counter<String> getLogScoreCounter(
@@ -621,17 +666,12 @@ public class POSTaggerTester {
 			String preTags = makePrefixString(
 					localTrigramContext.previousPreviousTag,
 					localTrigramContext.previousTag);
-			// unseen previous tag, no smoothing
-			if (!trigram.containsKey(preTags)) {
-				return new Counter<String>();
-			}
-			Counter<String> allowedTags;
-			allowedTags = trigram.getCounter(preTags);
+			Counter<String> allowedTags = trigram.getCounter(preTags);
 
 			String word = localTrigramContext.getCurrentWord();
 			Counter<String> scoreCounter = new Counter<String>();
 			// unknown word
-			if (!seenWords.contains(word)) {
+			if (!wordtotags.containsKey(word)) {
 				// only loop for seen tags
 				for (String tag : allowedTags.keySet()) {
 					// unknownword is in log
@@ -639,15 +679,26 @@ public class POSTaggerTester {
 				}
 				return scoreCounter;
 			}
-			for (String tag : allowedTags.keySet()) {
+			for (String tag : wordtotags.getCounter(word).keySet()) {
 				// only when w | t_i occurs
-				double score = tagtowords.getCount(tag, word);
-				if (score > 0) {
-					score = Math.log(score * allowedTags.getCount(tag));
-					scoreCounter.setCount(tag, score);
-				}
+				double score = tagtowords.getCount(tag, word)
+						* getProbability(localTrigramContext, tag);
+				score = Math.log(score);
+				scoreCounter.setCount(tag, score);
 			}
 			return scoreCounter;
+		}
+
+		private double getProbability(LocalTrigramContext localTrigramContext,
+				String tag) {
+			LocalTrigramContext local = localTrigramContext;
+			double p = trigram.getCount(
+					makePrefixString(local.previousPreviousTag,
+							local.previousTag), tag)
+					* lambda[0];
+			p += bigram.getCount(local.previousTag, tag) * lambda[1];
+			p += unigram.getCount(tag) * lambda[2];
+			return p;
 		}
 
 		private String makePrefixString(String previousPreviousTag,
@@ -661,16 +712,19 @@ public class POSTaggerTester {
 			for (LabeledLocalTrigramContext labeledLocalTrigramContext : labeledLocalTrigramContexts) {
 				String word = labeledLocalTrigramContext.getCurrentWord();
 				String tag = labeledLocalTrigramContext.getCurrentTag();
-				if (!seenWords.contains(word)) {
+				if (!wordtotags.containsKey(word)) {
 					unknownWordTags.incrementCount(tag, 1.0);
 				}
 				tagtowords.incrementCount(tag, word, 1.0);
 				wordtotags.incrementCount(word, tag, 1.0);
-				seenWords.add(word);
+
 				String preTags = makePrefixString(
 						labeledLocalTrigramContext.previousPreviousTag,
 						labeledLocalTrigramContext.previousTag);
 				trigram.incrementCount(preTags, tag, 1.0);
+				bigram.incrementCount(labeledLocalTrigramContext.previousTag,
+						tag, 1.0);
+				unigram.incrementCount(tag, 1.0);
 			}
 
 			// unknown word, log
@@ -679,9 +733,34 @@ public class POSTaggerTester {
 				unknownWordTags.setCount(tag,
 						Math.log(unknownWordTags.getCount(tag)));
 			}
+			smooth();
 			// trigram
 			trigram.normalize();
+			bigram.normalize();
+			unigram.normalize();
 			tagtowords.normalize();
+		}
+
+		private void smooth() {
+			double[] l = new double[3];
+			for (String preTags : trigram.keySet()) {
+				Counter<String> tagCounter = trigram.getCounter(preTags);
+				String[] pre = preTags.split("\\s*"); // get the latter tag in
+														// preTags
+				for (String tag : tagCounter.keySet()) {
+					double[] temp = new double[3];
+					temp[0] = (trigram.getCount(preTags, tag) - 0.75)
+							/ (trigram.getCounter(preTags).totalCount() - 0.75);
+					temp[1] = (bigram.getCount(pre[1], tag) - 0.75)
+							/ (bigram.getCounter(pre[1]).totalCount() - 0.75);
+					temp[2] = (unigram.getCount(tag) - 0.75)
+							/ (unigram.totalCount() - 0.75);
+					int maxIndex = DoubleArrays.argMax(temp);
+					l[maxIndex] += trigram.getCount(preTags, tag);
+				}
+			}
+			DoubleArrays.scale(l, 1.0 / DoubleArrays.add(l));
+			lambda = l;
 		}
 
 		@Override
@@ -867,7 +946,8 @@ public class POSTaggerTester {
 			localTrigramScorer = new MostFrequentTagScorer(false);
 		}
 		// TODO : improve on the GreedyDecoder
-		TrellisDecoder<State> trellisDecoder = new GreedyDecoder<State>();
+		// TrellisDecoder<State> trellisDecoder = new GreedyDecoder<State>();
+		TrellisDecoder<State> trellisDecoder = new ViterbiDecoder<State>();
 
 		// Train tagger
 		POSTagger posTagger = new POSTagger(localTrigramScorer, trellisDecoder);
