@@ -1,15 +1,10 @@
 package nlp.assignments;
 
 import java.util.*;
-import java.util.PriorityQueue;
-
-import com.sun.org.apache.bcel.internal.generic.NEW;
-
 import nlp.io.PennTreebankReader;
 import nlp.ling.Tree;
 import nlp.ling.Trees;
 import nlp.math.DoubleArrays;
-import nlp.math.SloppyMath;
 import nlp.util.*;
 
 /**
@@ -303,7 +298,7 @@ public class POSTaggerTester {
 			// initialize
 			Map<S, S> brackTrace = new HashMap<S, S>();
 			Counter<S> optimal = new Counter<S>();
-			optimal.setCount(trellis.getStartState(), 0); 
+			optimal.setCount(trellis.getStartState(), 0);
 			// the first log probability
 			Queue<S> queue = new LinkedList<S>();
 			Set<S> visitedStates = new HashSet<S>();
@@ -627,8 +622,6 @@ public class POSTaggerTester {
 						labeledLocalTrigramContext.getPreviousTag(),
 						labeledLocalTrigramContext.getCurrentTag()));
 			}
-			// wordsToTags = Counters.conditionalNormalize(wordsToTags);
-			// unknownWordTags = Counters.normalize(unknownWordTags);
 			wordsToTags.normalize();
 			unknownWordTags.normalize();
 		}
@@ -675,7 +668,12 @@ public class POSTaggerTester {
 				// only loop for seen tags
 				for (String tag : allowedTags.keySet()) {
 					// unknownword is in log
-					scoreCounter.setCount(tag, unknownWordTags.getCount(tag));
+					scoreCounter
+							.setCount(
+									tag,
+									Math.log(unknownWordTags.getCount(tag)
+											* getProbability(
+													localTrigramContext, tag)));
 				}
 				return scoreCounter;
 			}
@@ -712,9 +710,7 @@ public class POSTaggerTester {
 			for (LabeledLocalTrigramContext labeledLocalTrigramContext : labeledLocalTrigramContexts) {
 				String word = labeledLocalTrigramContext.getCurrentWord();
 				String tag = labeledLocalTrigramContext.getCurrentTag();
-				if (!wordtotags.containsKey(word)) {
-					unknownWordTags.incrementCount(tag, 1.0);
-				}
+
 				tagtowords.incrementCount(tag, word, 1.0);
 				wordtotags.incrementCount(word, tag, 1.0);
 
@@ -728,17 +724,15 @@ public class POSTaggerTester {
 			}
 
 			// unknown word, log
-			unknownWordTags.normalize();
-			for (String tag : unknownWordTags.keySet()) {
-				unknownWordTags.setCount(tag,
-						Math.log(unknownWordTags.getCount(tag)));
+			for (String word : wordtotags.keySet()) {
+				Counter<String> tagCounter = wordtotags.getCounter(word);
+				if (tagCounter.totalCount() <= 1.0) {
+					for (String tag : tagCounter.keySet()) {
+						unknownWordTags.incrementCount(tag, 1.0);
+					}
+				}
 			}
-			smooth();
-			// trigram
-			trigram.normalize();
-			bigram.normalize();
-			unigram.normalize();
-			tagtowords.normalize();
+			unknownWordTags.normalize();
 		}
 
 		private void smooth() {
@@ -749,12 +743,12 @@ public class POSTaggerTester {
 														// preTags
 				for (String tag : tagCounter.keySet()) {
 					double[] temp = new double[3];
-					temp[0] = (trigram.getCount(preTags, tag) - 0.75)
-							/ (trigram.getCounter(preTags).totalCount() - 0.75);
-					temp[1] = (bigram.getCount(pre[1], tag) - 0.75)
-							/ (bigram.getCounter(pre[1]).totalCount() - 0.75);
-					temp[2] = (unigram.getCount(tag) - 0.75)
-							/ (unigram.totalCount() - 0.75);
+					temp[0] = (trigram.getCount(preTags, tag) - 1)
+							/ (trigram.getCounter(preTags).totalCount() - 1);
+					temp[1] = (bigram.getCount(pre[1], tag) - 1)
+							/ (bigram.getCounter(pre[1]).totalCount() - 1);
+					temp[2] = (unigram.getCount(tag) - 1)
+							/ (unigram.totalCount() - 1);
 					int maxIndex = DoubleArrays.argMax(temp);
 					l[maxIndex] += trigram.getCount(preTags, tag);
 				}
@@ -762,11 +756,38 @@ public class POSTaggerTester {
 			DoubleArrays.scale(l, 1.0 / DoubleArrays.add(l));
 			lambda = l;
 		}
-
 		@Override
 		public void validate(
-				List<LabeledLocalTrigramContext> localTrigramContexts) {
+				
+				List<LabeledLocalTrigramContext> labeledLocalTrigramContexts) {
+			double[] l = new double[3];
+			for (LabeledLocalTrigramContext labeledLocalTrigramContext : labeledLocalTrigramContexts) {
+				String tag = labeledLocalTrigramContext.getCurrentTag();
+				String preTags = makePrefixString(
+						labeledLocalTrigramContext.getPreviousPreviousTag(),
+						labeledLocalTrigramContext.getPreviousTag());
+				double[] temp = new double[3];
+				temp[0] = (trigram.getCount(preTags, tag) - 1)
+						/ (trigram.getCounter(preTags).totalCount() - 1);
+				temp[1] = (bigram.getCount(
+						labeledLocalTrigramContext.getPreviousTag(), tag) - 1)
+						/ (bigram.getCounter(
+								labeledLocalTrigramContext.getPreviousTag())
+								.totalCount() - 1);
+				temp[2] = (unigram.getCount(tag) - 1)
+						/ (unigram.totalCount() - 1);
+				int maxIndex = DoubleArrays.argMax(temp);
+				l[maxIndex] += trigram.getCount(preTags, tag);
 
+			}
+			DoubleArrays.scale(l, 1.0 / DoubleArrays.add(l));
+			lambda = l;
+
+			// trigram
+			trigram.normalize();
+			bigram.normalize();
+			unigram.normalize();
+			tagtowords.normalize();
 		}
 
 	}
