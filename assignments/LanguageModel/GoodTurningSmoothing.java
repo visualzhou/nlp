@@ -82,4 +82,40 @@ public class GoodTurningSmoothing {
 		}
 		return frequency.getCount(1.0);
 	}
+
+	/**
+	 * Smooth for Bigram by give UNKNOWN data a reasonable count and adjust
+	 * others'. Add UNKKey to each counter in the counterMap, normalized
+	 * 
+	 * @param <K>
+	 * @param counter
+	 * @return the count for UNKNOWN data
+	 */
+	public static <K, V> double Smooth(CounterMap<K, V> counterMap, V UNKKey) {
+		Counter<Double> frequency = new Counter<Double>();
+		for (K key : counterMap.keySet()) {
+			Counter<V> vCounter = counterMap.getCounter(key);
+			for (V v : vCounter.keySet())
+				frequency.incrementCount(vCounter.getCount(v), 1.0);
+		}
+
+		Map<Double, Double> rMap = GetFrequencyMap(frequency);
+
+		for (K key : counterMap.keySet()) {
+			Counter<V> vCounter = counterMap.getCounter(key);
+			double unkcount = 0;
+			for (V v : vCounter.keySet()) {
+				double r = vCounter.getCount(v); // old value
+				if (rMap.containsKey(r)) {
+					unkcount += r - rMap.get(r);
+				}
+			}
+			if (unkcount == 0) {
+				unkcount = 1E-4; // avoid zero for unknown word
+			}
+			counterMap.incrementCount(key, UNKKey, unkcount);
+		}
+		counterMap.normalize();
+		return frequency.getCount(1.0);
+	}
 }

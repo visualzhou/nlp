@@ -1,7 +1,14 @@
 package nlp.assignments;
 
 import java.util.*;
+
+import nlp.assignments.LanguageModel.GoodTurningSmoothing;
+import nlp.assignments.NameClassification.ProperNameTester.ProperNameFeatureExtractor;
+import nlp.classify.LabeledInstance;
+import nlp.classify.ProbabilisticClassifier;
+import nlp.classify.ProbabilisticClassifierFactory;
 import nlp.io.PennTreebankReader;
+import nlp.langmodel.LanguageModel;
 import nlp.ling.Tree;
 import nlp.ling.Trees;
 import nlp.math.DoubleArrays;
@@ -652,6 +659,9 @@ public class POSTaggerTester {
 		CounterMap<String, String> wordtotags = new CounterMap<String, String>();
 		Counter<String> unknownWordTags = new Counter<String>();
 		double[] lambda = new double[3];
+		ProbabilisticClassifier<String, String> unknownClassifier = null;
+		public static final String UNKWORD = LanguageModel.UNKNOWN;
+		Counter<String> tagsProbabilityCounter = new Counter<String>();
 
 		@Override
 		public Counter<String> getLogScoreCounter(
@@ -665,15 +675,21 @@ public class POSTaggerTester {
 			Counter<String> scoreCounter = new Counter<String>();
 			// unknown word
 			if (!wordtotags.containsKey(word)) {
+				Counter<String> estimatedTags = unknownClassifier
+						.getProbabilities(word);
 				// only loop for seen tags
 				for (String tag : allowedTags.keySet()) {
-					// unknownword is in log
-					scoreCounter
-							.setCount(
-									tag,
-									Math.log(unknownWordTags.getCount(tag)
-											* getProbability(
-													localTrigramContext, tag)));
+					// unknown word
+					if (!unknownWordTags.containsKey(tag)) {
+						continue;
+					} 
+					double p = 
+							 estimatedTags.getCount(tag) // emission
+							* tagtowords.getCount(tag, UNKWORD) * 1E1
+							 / tagsProbabilityCounter.getCount(tag)
+							// times P(t_i|t_(i-1), t_(i-2)) transition
+							* getProbability(localTrigramContext, tag);
+					scoreCounter.setCount(tag, Math.log(p));
 				}
 				return scoreCounter;
 			}
@@ -723,7 +739,14 @@ public class POSTaggerTester {
 				unigram.incrementCount(tag, 1.0);
 			}
 
-			// unknown word, log
+			// unknown word
+			
+			List<LabeledInstance<String, String>> labeledUNKInstances = MaxentClassifier4POSTagger
+					.buildTrainingData(wordtotags);
+			ProbabilisticClassifierFactory<String, String> factory = new MaximumEntropyClassifier.Factory<String, String, String>(
+					1.0, 20,
+					new MaxentClassifier4POSTagger.PosTaggerFeatureExtractor());
+			unknownClassifier = factory.trainClassifier(labeledUNKInstances);
 			for (String word : wordtotags.keySet()) {
 				Counter<String> tagCounter = wordtotags.getCounter(word);
 				if (tagCounter.totalCount() <= 1.0) {
@@ -733,32 +756,23 @@ public class POSTaggerTester {
 				}
 			}
 			unknownWordTags.normalize();
+
+			// train UNK
+			trainUNK(labeledUNKInstances);
 		}
 
-		private void smooth() {
-			double[] l = new double[3];
-			for (String preTags : trigram.keySet()) {
-				Counter<String> tagCounter = trigram.getCounter(preTags);
-				String[] pre = preTags.split("\\s*"); // get the latter tag in
-														// preTags
-				for (String tag : tagCounter.keySet()) {
-					double[] temp = new double[3];
-					temp[0] = (trigram.getCount(preTags, tag) - 1)
-							/ (trigram.getCounter(preTags).totalCount() - 1);
-					temp[1] = (bigram.getCount(pre[1], tag) - 1)
-							/ (bigram.getCounter(pre[1]).totalCount() - 1);
-					temp[2] = (unigram.getCount(tag) - 1)
-							/ (unigram.totalCount() - 1);
-					int maxIndex = DoubleArrays.argMax(temp);
-					l[maxIndex] += trigram.getCount(preTags, tag);
-				}
+		private void trainUNK(
+				List<LabeledInstance<String, String>> labeledUNKInstances) {
+			for (LabeledInstance<String, String> labeledInstance : labeledUNKInstances) {
+				String tag = labeledInstance.getLabel();
+				tagsProbabilityCounter.incrementCount(tag, 1.0);
 			}
-			DoubleArrays.scale(l, 1.0 / DoubleArrays.add(l));
-			lambda = l;
+			// P(tag) used for UNK
+			tagsProbabilityCounter.normalize();
 		}
+
 		@Override
 		public void validate(
-				
 				List<LabeledLocalTrigramContext> labeledLocalTrigramContexts) {
 			double[] l = new double[3];
 			for (LabeledLocalTrigramContext labeledLocalTrigramContext : labeledLocalTrigramContexts) {
@@ -783,13 +797,14 @@ public class POSTaggerTester {
 			DoubleArrays.scale(l, 1.0 / DoubleArrays.add(l));
 			lambda = l;
 
-			// trigram
+			// probability fo UNK
+			GoodTurningSmoothing.Smooth(tagtowords, UNKWORD);
+
+			// normalize
 			trigram.normalize();
 			bigram.normalize();
 			unigram.normalize();
-			tagtowords.normalize();
 		}
-
 	}
 
 	private static List<TaggedSentence> readTaggedSentences(String path,
