@@ -157,6 +157,14 @@ public class CounterMap <K,V> implements java.io.Serializable {
   public boolean isEmpty() {
     return size() == 0;
   }
+  
+  /**
+   * Remove a mapping between key and the associated inner Counter
+   */
+	public Counter<V> remove(K key) {
+	    currentModCount++;
+		return counterMap.remove(key);
+	}
 
   public String toString() {
     StringBuilder sb = new StringBuilder("[\n");

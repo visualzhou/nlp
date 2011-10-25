@@ -763,16 +763,20 @@ public class POSTaggerTester {
 					1.0, 20,
 					new MaxentClassifier4POSTagger.PosTaggerFeatureExtractor());
 			unknownClassifier = factory.trainClassifier(labeledUNKInstances);
+			List<String> removedWords = new ArrayList<String>();
 			for (String word : wordtotags.keySet()) {
 				Counter<String> tagCounter = wordtotags.getCounter(word);
 				if (tagCounter.totalCount() <= 1.0) {
 					for (String tag : tagCounter.keySet()) {
 						unknownWordTags.incrementCount(tag, 1.0);
 					}
+					removedWords.add(word);
 				}
 			}
 			unknownWordTags.normalize();
-
+			for (String word : removedWords) {
+				wordtotags.remove(word);
+			}
 			// train UNK
 			trainUNK(labeledUNKInstances);
 		}
@@ -901,6 +905,7 @@ public class POSTaggerTester {
 				+ (numUnknownWordsCorrect / numUnknownWords)
 				+ ")  Decoder Suboptimalities Detected: "
 				+ numDecodingInversions);
+		confusionMatrix.normalize();
 		System.out.println(confusionMatrix.toString(10));
 		System.out.println(errorCause.toString());
 		errorCause.normalize();
