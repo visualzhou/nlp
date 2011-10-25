@@ -1,9 +1,17 @@
 package nlp.assignments;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 
 import nlp.assignments.LanguageModel.GoodTurningSmoothing;
-import nlp.assignments.NameClassification.ProperNameTester.ProperNameFeatureExtractor;
 import nlp.classify.LabeledInstance;
 import nlp.classify.ProbabilisticClassifier;
 import nlp.classify.ProbabilisticClassifierFactory;
@@ -12,7 +20,12 @@ import nlp.langmodel.LanguageModel;
 import nlp.ling.Tree;
 import nlp.ling.Trees;
 import nlp.math.DoubleArrays;
-import nlp.util.*;
+import nlp.util.BoundedList;
+import nlp.util.CommandLineUtils;
+import nlp.util.Counter;
+import nlp.util.CounterMap;
+import nlp.util.Interner;
+import nlp.util.Pair;
 
 /**
  * Harness for POS Tagger project.
@@ -676,17 +689,20 @@ public class POSTaggerTester {
 			// unknown word
 			if (!wordtotags.containsKey(word)) {
 				Counter<String> estimatedTags = unknownClassifier
-						.getProbabilities(word);
+						.getProbabilities(MaxentClassifier4POSTagger
+								.addProperties(word,
+										localTrigramContext.getPosition(),
+										localTrigramContext.getPreviousTag()));
 				// only loop for seen tags
 				for (String tag : allowedTags.keySet()) {
 					// unknown word
 					if (!unknownWordTags.containsKey(tag)) {
 						continue;
-					} 
-					double p = 
-							 estimatedTags.getCount(tag) // emission
-							* tagtowords.getCount(tag, UNKWORD) * 1E1
-							 / tagsProbabilityCounter.getCount(tag)
+					}
+					double p = estimatedTags.getCount(tag) // emission
+							* tagtowords.getCount(tag, UNKWORD)
+							* 1E-10
+							/ tagsProbabilityCounter.getCount(tag)
 							// times P(t_i|t_(i-1), t_(i-2)) transition
 							* getProbability(localTrigramContext, tag);
 					scoreCounter.setCount(tag, Math.log(p));
@@ -740,9 +756,9 @@ public class POSTaggerTester {
 			}
 
 			// unknown word
-			
+
 			List<LabeledInstance<String, String>> labeledUNKInstances = MaxentClassifier4POSTagger
-					.buildTrainingData(wordtotags);
+					.buildTrainingData(wordtotags, labeledLocalTrigramContexts);
 			ProbabilisticClassifierFactory<String, String> factory = new MaximumEntropyClassifier.Factory<String, String, String>(
 					1.0, 20,
 					new MaxentClassifier4POSTagger.PosTaggerFeatureExtractor());
@@ -832,16 +848,34 @@ public class POSTaggerTester {
 		double numUnknownWords = 0.0;
 		double numUnknownWordsCorrect = 0.0;
 		int numDecodingInversions = 0;
+		/**
+		 * @author syzhou
+		 */
+		Counter<Pair<String, String>> confusionMatrix = new Counter<Pair<String, String>>();
+		CounterMap<String, String> errorCause = new CounterMap<String, String>();
 		for (TaggedSentence taggedSentence : taggedSentences) {
 			List<String> words = taggedSentence.getWords();
 			List<String> goldTags = taggedSentence.getTags();
 			List<String> guessedTags = posTagger.tag(words);
+			boolean accurate = true;
 			for (int position = 0; position < words.size() - 1; position++) {
 				String word = words.get(position);
 				String goldTag = goldTags.get(position);
 				String guessedTag = guessedTags.get(position);
-				if (guessedTag.equals(goldTag))
+				String isKNOWN = trainingVocabulary.contains(word) ? "KNOWN"
+						: "UNKNOWN";
+				String guessResult = null;
+				if (guessedTag.equals(goldTag)) {
 					numTagsCorrect += 1.0;
+					guessResult = "Right";
+				} else {
+					// tag error
+					accurate = false;
+					confusionMatrix.incrementCount(new Pair<String, String>(
+							goldTag, guessedTag), 1.0);
+					guessResult = "Wrong";
+				}
+				errorCause.incrementCount(isKNOWN, guessResult, 1.0);
 				numTags += 1.0;
 				if (!trainingVocabulary.contains(word)) {
 					if (guessedTag.equals(goldTag))
@@ -858,7 +892,7 @@ public class POSTaggerTester {
 					System.out
 							.println("WARNING: Decoder suboptimality detected.  Gold tagging has higher score than guessed tagging.");
 			}
-			if (verbose)
+			if (verbose && !accurate)
 				System.out.println(alignedTaggings(words, goldTags,
 						guessedTags, true) + "\n");
 		}
@@ -867,6 +901,10 @@ public class POSTaggerTester {
 				+ (numUnknownWordsCorrect / numUnknownWords)
 				+ ")  Decoder Suboptimalities Detected: "
 				+ numDecodingInversions);
+		System.out.println(confusionMatrix.toString(10));
+		System.out.println(errorCause.toString());
+		errorCause.normalize();
+		System.out.println(errorCause.toString());
 	}
 
 	// pretty-print a pair of taggings for a sentence, possibly suppressing the

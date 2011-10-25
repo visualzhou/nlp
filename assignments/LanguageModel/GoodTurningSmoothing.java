@@ -2,10 +2,7 @@ package nlp.assignments.LanguageModel;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
-import nlp.langmodel.LanguageModel;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
 

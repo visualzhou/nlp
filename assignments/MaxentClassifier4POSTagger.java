@@ -4,8 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.sun.tools.corba.se.idl.PragmaEntry;
-
+import nlp.assignments.POSTaggerTester.LabeledLocalTrigramContext;
 import nlp.classify.FeatureExtractor;
 import nlp.classify.LabeledInstance;
 import nlp.util.BoundedList;
@@ -13,11 +12,24 @@ import nlp.util.Counter;
 import nlp.util.CounterMap;
 
 public class MaxentClassifier4POSTagger {
+	public static final char POSITIONSEPERATOR = '@';
+	public static final char PREVIOUSTAGSEPERATOR = '+';
 
 	public static class PosTaggerFeatureExtractor implements
 			FeatureExtractor<String, String> {
+		List<String> caredTags = Arrays.asList(new String[] {
+				// POSTaggerTester.START_TAG, "NN", "NNP", "NNS", "NNPS", "``" });
+				POSTaggerTester.START_TAG});
 		@Override
 		public Counter<String> extractFeatures(String instance) {
+			int tagSpPosition, posSpPosition;
+			tagSpPosition = instance.lastIndexOf(PREVIOUSTAGSEPERATOR);
+			String previousTag = instance.substring(tagSpPosition + 1);
+			instance = instance.substring(0, tagSpPosition);
+			posSpPosition = instance.lastIndexOf(POSITIONSEPERATOR);
+			// int wordPostion = Integer.parseInt(instance
+			// .substring(posSpPosition + 1));
+			instance = instance.substring(0, posSpPosition);
 			Counter<String> features = new Counter<String>();
 			// suffix
 			char[] characters = instance.toCharArray();
@@ -29,27 +41,34 @@ public class MaxentClassifier4POSTagger {
 					charList, "<S>");
 
 			// Suffix
-			for (int i = 1; i < 4; i++) {
+			for (int i = 1; i < 5; i++) {
 				String str = "SUFFIX-";
 				for (int j = characters.length - i; j < characters.length; j++) {
 					str += boundedString.get(j);
 				}
 				features.incrementCount(str, 1.0);
 			}
+
+			// Previous tag
+			// features.incrementCount("PRE-" + previousTag, 1.0);
 			// Capitalization
 			if (instance.length() > 0) {
+				String positionString = null; // = previousTag;
+				if (caredTags.contains(previousTag))
+					positionString = previousTag;
+				// wordPostion > 0 ? "@MIDDLE" : "@START";
 				if (Character.isUpperCase(instance.charAt(0))) {
-					features.incrementCount("CAP", 1.0);
+					features.incrementCount("CAP-" + positionString, 1.0);
 				} else if (Character.isLowerCase(instance.charAt(0))) {
-					features.incrementCount("UNCAP", 1.0);
+					features.incrementCount("UNCAP-" + positionString, 1.0);
 				}
 			}
 			// Digits and other
 			features.incrementCount(extractStyle(characters), 1.0);
 
 			// -
-			features.incrementCount(boundedString.contains('-') ? "Hyphen"
-					: "NonHyphen", 1.0);
+			// features.incrementCount(boundedString.contains('-') ? "Hyphen"
+			// : "NonHyphen", 1.0);
 			return features;
 		}
 	}
@@ -92,20 +111,29 @@ public class MaxentClassifier4POSTagger {
 	public static final double MAXCOUNTTHRESHOLD = 5.0;
 
 	public static List<LabeledInstance<String, String>> buildTrainingData(
-			CounterMap<String, String> wordtotags) {
+			CounterMap<String, String> wordtotags,
+			List<LabeledLocalTrigramContext> labeledLocalTrigramContexts) {
 		List<LabeledInstance<String, String>> labeledInstances = new ArrayList<LabeledInstance<String, String>>();
-		for (String word : wordtotags.keySet()) {
+		// for (String word : wordtotags.keySet()) {
+		for (LabeledLocalTrigramContext context : labeledLocalTrigramContexts) {
+			String word = context.getCurrentWord();
+			int position = context.getPosition();
 			Counter<String> tagCounter = wordtotags.getCounter(word);
 			if (tagCounter.totalCount() > MAXCOUNTTHRESHOLD) {
 				continue;
 			}
 			for (String tag : tagCounter.keySet()) {
 				LabeledInstance<String, String> labeledInstance = new LabeledInstance<String, String>(
-						tag, word);
+						tag, addProperties(word, position, context.previousTag));
 				labeledInstances.add(labeledInstance);
 			}
 		}
 		return labeledInstances;
+	}
+
+	public static String addProperties(String word, int position, String preTag) {
+		return word + POSITIONSEPERATOR + position + PREVIOUSTAGSEPERATOR
+				+ preTag;
 	}
 
 	public static <K, V> double GetPUNK(CounterMap<K, V> counterMap) {
