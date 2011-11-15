@@ -1,6 +1,8 @@
 package nlp.math;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  */
@@ -104,6 +106,21 @@ public class DoubleArrays {
 			}
 		}
 		return maxI;
+	}
+
+	public static List<Integer> argMaxList(double[] v) {
+		List<Integer> maxIndexes = new ArrayList<Integer>();
+		double maxV = Double.NEGATIVE_INFINITY;
+		for (int i = 0; i < v.length; i++) {
+			if (v[i] > maxV) {
+				maxV = v[i];
+				maxIndexes.clear();
+				maxIndexes.add(i);
+			} else if (v[i] == maxV) {
+				maxIndexes.add(i);
+			}
+		}
+		return maxIndexes;
 	}
 
 	public static double max(double[] v) {

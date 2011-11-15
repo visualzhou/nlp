@@ -102,6 +102,20 @@ public class CounterMap <K,V> implements java.io.Serializable {
   }
 
   /**
+   * Returns whether or not the <code>CounterMap</code> contains a
+   * entry for the given key and value.
+   * @param key
+   * @param value
+   * @return
+   */
+	public boolean containsKeyValue(K key, V value) {
+		if (!containsKey(key)) {
+			return false;
+		}
+		return getCounter(key).containsKey(value);
+	}
+
+  /**
    * Returns the total of all counts in sub-counters.  This implementation is
    * caches the result -- it can get out of sync if the entries get modified externally.
    */

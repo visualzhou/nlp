@@ -1,4 +1,4 @@
-package nlp.assignments;
+package nlp.assignments.alignment;
 
 
 import java.util.*;
@@ -179,7 +179,7 @@ public class WordAlignmentTester {
    * french word which is not aligned to "null".  Explicit alignment to
    * position -1 is equivalent to alignment to "null".
    */
-  static interface WordAligner {
+  public static interface WordAligner {
     Alignment alignSentencePair(SentencePair sentencePair);
   }
 
@@ -263,6 +263,17 @@ public class WordAlignmentTester {
     if (model.equalsIgnoreCase("baseline")) {
       wordAligner = new BaselineWordAligner();
     }
+    else if(model.equalsIgnoreCase("heuristic")) {
+		HeuristicAligner aligner = new HeuristicAligner();
+		// train
+		aligner.train(trainingSentencePairs);
+		wordAligner = aligner;
+	}
+    else if (model.equalsIgnoreCase("model1")) {
+		Model1Aligner aligner = new Model1Aligner();
+		aligner.train(trainingSentencePairs);
+		wordAligner = aligner;
+	}
     // TODO : build other alignment models
 
     // Test model
@@ -330,6 +341,9 @@ public class WordAlignmentTester {
     List<SentencePair> sentencePairs = new ArrayList<SentencePair>();
     List<String> baseFileNames = getBaseFileNames(path);
     for (String baseFileName : baseFileNames) {
+    	if (new File(baseFileName).getName().startsWith(".")) {
+			continue;
+		}
       if (sentencePairs.size() >= maxSentencePairs)
         continue;
       sentencePairs.addAll(readSentencePairs(baseFileName));
