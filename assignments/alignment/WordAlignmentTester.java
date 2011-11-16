@@ -274,7 +274,11 @@ public class WordAlignmentTester {
 		aligner.train(trainingSentencePairs);
 		wordAligner = aligner;
 	}
-    // TODO : build other alignment models
+    else if (model.equalsIgnoreCase("model2")) {
+		Model1Aligner aligner = new Model2Aligner();
+		aligner.train(trainingSentencePairs);
+		wordAligner = aligner;
+	}
 
     // Test model
     test(wordAligner, testSentencePairs, testAlignments, verbose);
