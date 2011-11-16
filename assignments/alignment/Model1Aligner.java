@@ -7,7 +7,6 @@ import java.util.List;
 
 import nlp.assignments.alignment.WordAlignmentTester.*;
 import nlp.math.DoubleArrays;
-import nlp.util.Counter;
 import nlp.util.CounterMap;
 
 public class Model1Aligner implements WordAligner {
@@ -28,9 +27,10 @@ public class Model1Aligner implements WordAligner {
 				enProbobality[j] = e2f.getCount(en, fr);
 			}
 			int englishPosition = DoubleArrays.argMax(enProbobality);
-//			if (enProbobality[englishPosition] * (1 - NullProbabiliy) < NullProbabiliy) {
-//				englishPosition = -1;
-//			}
+			// if (enProbobality[englishPosition] * (1 - NullProbabiliy) <
+			// NullProbabiliy) {
+			// englishPosition = -1;
+			// }
 			if (enProbobality[englishPosition] < e2f.getCount(nullString, fr)) {
 				englishPosition = -1;
 			}
@@ -62,23 +62,29 @@ public class Model1Aligner implements WordAligner {
 			// init another e2f
 			CounterMap<String, String> e2f_new = new CounterMap<String, String>();
 			for (SentencePair sentencePair : trainingSentencePairs) {
+				double[] sourceProbabilities = new double[sentencePair
+						.getEnglishWords().size() + 1]; // +1 for null
 				for (String fr : sentencePair.getFrenchWords()) {
-					// the probablity distribution of the generating source of a
-					// given franch
-					Counter<String> sourceCounter = new Counter<String>();
-					for (String en : sentencePair.getEnglishWords()) {
-						sourceCounter.incrementCount(en, e2f.getCount(en, fr));
-					}
 					// give null string a count
-					sourceCounter.incrementCount(nullString, e2f.getCount(nullString, fr));
-					sourceCounter.normalize(); // fractional number
+					sourceProbabilities[0] = e2f.getCount(nullString, fr);
+					// the probability distribution of the generating source of a
+					// given french
+					for (int i = 0, stop = sentencePair.getEnglishWords()
+							.size(); i < stop; i++) {
+						String en = sentencePair.getEnglishWords().get(i);
+						sourceProbabilities[i + 1] = e2f.getCount(en, fr);
+					}
+					// normalize
+					double sum = DoubleArrays.add(sourceProbabilities);
 					// add the fractional number to counter
-					for (String en : sentencePair.getEnglishWords()) {
+					for (int i = 0; i < sourceProbabilities.length-1; i++) {
+						String en = sentencePair.getEnglishWords().get(i);
 						e2f_new.incrementCount(en, fr,
-								sourceCounter.getCount(en));
+								sourceProbabilities[i+1] / sum); // fractional number
 					}
 					// add null string
-					e2f_new.incrementCount(nullString, fr, sourceCounter.getCount(nullString));
+					e2f_new.incrementCount(nullString, fr,
+							sourceProbabilities[0] / sum);
 				}
 			}
 			e2f_new.normalize();
