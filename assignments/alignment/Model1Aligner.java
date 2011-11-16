@@ -11,27 +11,26 @@ import nlp.util.CounterMap;
 
 public class Model1Aligner implements WordAligner {
 
-	CounterMap<String, String> e2f;
-	double NullProbabiliy = 0.2;
-	final String nullString = "*NULL*";
+	protected CounterMap<String, String> e2f;
+	protected double NullPositionProbabiliy = 0.2;
+	protected final String nullString = "*NULL*";
 
 	@Override
 	public Alignment alignSentencePair(SentencePair sentencePair) {
 		Alignment alignment = new Alignment();
-		for (int i = 0; i < sentencePair.getFrenchWords().size(); i++) {
+		int enLength = sentencePair.getEnglishWords().size();
+		int frLenght = sentencePair.getFrenchWords().size();
+		double[] enProbobality = new double[enLength];
+		for (int i = 0; i < frLenght; i++) {
 			String fr = sentencePair.getFrenchWords().get(i);
-			double[] enProbobality = new double[sentencePair.getEnglishWords()
-					.size()];
-			for (int j = 0; j < sentencePair.getEnglishWords().size(); j++) {
+			for (int j = 0; j < enLength; j++) {
 				String en = sentencePair.getEnglishWords().get(j);
-				enProbobality[j] = e2f.getCount(en, fr);
+				enProbobality[j] = e2f.getCount(en, fr)
+						* getPositionProbability(j, i, enLength, frLenght);
 			}
 			int englishPosition = DoubleArrays.argMax(enProbobality);
-			// if (enProbobality[englishPosition] * (1 - NullProbabiliy) <
-			// NullProbabiliy) {
-			// englishPosition = -1;
-			// }
-			if (enProbobality[englishPosition] < e2f.getCount(nullString, fr)) {
+			if (enProbobality[englishPosition] < e2f.getCount(nullString, fr)
+					* NullPositionProbabiliy) {
 				englishPosition = -1;
 			}
 			alignment.addAlignment(englishPosition, i, true);
@@ -62,34 +61,47 @@ public class Model1Aligner implements WordAligner {
 			// init another e2f
 			CounterMap<String, String> e2f_new = new CounterMap<String, String>();
 			for (SentencePair sentencePair : trainingSentencePairs) {
-				double[] sourceProbabilities = new double[sentencePair
-						.getEnglishWords().size() + 1]; // +1 for null
-				for (String fr : sentencePair.getFrenchWords()) {
+				int enLenght = sentencePair.getEnglishWords().size();
+				int frLenght = sentencePair.getFrenchWords().size();
+				double[] sourceProbabilities = new double[enLenght + 1]; // +1
+																			// for
+																			// null
+				for (int frPositioin = 0; frPositioin < frLenght; frPositioin++) {
+					String fr = sentencePair.getFrenchWords().get(frPositioin);
 					// give null string a count
 					sourceProbabilities[0] = e2f.getCount(nullString, fr);
-					// the probability distribution of the generating source of a
-					// given french
-					for (int i = 0, stop = sentencePair.getEnglishWords()
-							.size(); i < stop; i++) {
+					// the probability distribution of the generating source of
+					// a given french
+					for (int i = 0; i < enLenght; i++) {
 						String en = sentencePair.getEnglishWords().get(i);
 						sourceProbabilities[i + 1] = e2f.getCount(en, fr);
 					}
 					// normalize
 					double sum = DoubleArrays.add(sourceProbabilities);
 					// add the fractional number to counter
-					for (int i = 0; i < sourceProbabilities.length-1; i++) {
+					for (int i = 0; i < sourceProbabilities.length - 1; i++) {
 						String en = sentencePair.getEnglishWords().get(i);
-						e2f_new.incrementCount(en, fr,
-								sourceProbabilities[i+1] / sum); // fractional number
+						double p = sourceProbabilities[i + 1]
+								/ sum
+								* getPositionProbability(i, frPositioin,
+										enLenght, frLenght);
+						e2f_new.incrementCount(en, fr, p);
+						// fractional number
 					}
 					// add null string
 					e2f_new.incrementCount(nullString, fr,
-							sourceProbabilities[0] / sum);
+							NullPositionProbabiliy * sourceProbabilities[0]
+									/ sum);
 				}
 			}
 			e2f_new.normalize();
 			e2f = null; // for garbage collection
 			e2f = e2f_new;
 		}
+	}
+
+	protected double getPositionProbability(int enPosition, int frPositioin,
+			int enLenght, int frLenght) {
+		return (1.0 - NullPositionProbabiliy) / enLenght;
 	}
 }
