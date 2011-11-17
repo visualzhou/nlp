@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import nlp.langmodel.LanguageModel;
 import nlp.util.Counter;
 
 class CharUnigramLanguageModel implements GradualLanguageModel {

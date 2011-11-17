@@ -1,19 +1,9 @@
 package nlp.assignments.LanguageModel;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
-import org.omg.CORBA.PUBLIC_MEMBER;
-
-import nlp.langmodel.LanguageModel;
-import nlp.math.DifferentiableFunction;
-import nlp.math.LBFGSMinimizer;
 import nlp.util.Counter;
-import nlp.util.CounterMap;
-import nlp.util.Counters;
 
 /**
  * A language model -- uses bigram counts, Good-Turning smoothing for unknown
