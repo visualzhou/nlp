@@ -3,15 +3,7 @@
  */
 package nlp.assignments.alignment;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import nlp.assignments.alignment.WordAlignmentTester.*;
-import nlp.math.DoubleArrays;
 import nlp.math.SloppyMath;
-import nlp.util.Counter;
-import nlp.util.CounterMap;
 
 public class Model2Aligner extends Model1Aligner {
 

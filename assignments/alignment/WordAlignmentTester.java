@@ -279,6 +279,11 @@ public class WordAlignmentTester {
 		aligner.train(trainingSentencePairs);
 		wordAligner = aligner;
 	}
+    else if (model.equalsIgnoreCase("intersection")) {
+		IntersectionModel aligner = new IntersectionModel();
+		aligner.train(trainingSentencePairs);
+		wordAligner = aligner;
+	}
 
     // Test model
     test(wordAligner, testSentencePairs, testAlignments, verbose);
