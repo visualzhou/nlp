@@ -23,7 +23,7 @@ public class HeuristicAligner implements WordAligner {
 				String enWord = sentencePair.getEnglishWords().get(j);
 				ratio[j] = e2fCounterMap.getCount(enWord, frWord)
 						/ eCounter.getCount(enWord);
-				// c(f,e)/(c(e) á c(f))
+				// c(f,e)/(c(e) * c(f))
 				// c(f) is a constant
 			}
 			List<Integer> englishPositions = DoubleArrays.argMaxList(ratio);

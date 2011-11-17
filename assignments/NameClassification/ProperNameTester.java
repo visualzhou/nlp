@@ -9,8 +9,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
-import com.sun.tools.javac.util.Pair;
-
 import nlp.assignments.MaximumEntropyClassifier;
 import nlp.assignments.MostFrequentLabelClassifier;
 import nlp.classify.*;
@@ -18,6 +16,7 @@ import nlp.util.BoundedList;
 import nlp.util.CommandLineUtils;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
+import nlp.util.Pair;
 
 /**
  * This is the main harness for assignment 2. To run this harness, use
