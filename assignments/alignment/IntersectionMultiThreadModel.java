@@ -158,7 +158,7 @@ public class IntersectionMultiThreadModel implements WordAligner {
 				e2f_new.normalize();
 				e2f = null; // for garbage collection
 				e2f = e2f_new;
-				System.out.println("f2e training iteration "+iterationTimes+" done.");
+				System.out.println("e2f training iteration "+iterationTimes+" done.");
 			}
 		}
 	}

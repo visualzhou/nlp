@@ -6,7 +6,6 @@ import java.util.List;
 
 import nlp.math.DifferentiableFunction;
 import nlp.math.LBFGSMinimizer;
-import nlp.util.Counter;
 
 public class InterTrigramLanguageModel extends SimpleTrigramLanguageModel {
 	double[] lambda = new double[] { 0.3, 0.3 }; // interpolation

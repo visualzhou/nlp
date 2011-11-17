@@ -4,11 +4,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-import nlp.langmodel.LanguageModel;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
-import nlp.util.Counters;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * A language model -- uses bigram counts, Good-Turning smoothing for unknown

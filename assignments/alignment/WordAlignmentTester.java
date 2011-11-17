@@ -1,15 +1,21 @@
 package nlp.assignments.alignment;
 
 
-import java.util.*;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import sun.tools.tree.ThisExpression;
-
-import nlp.assignments.alignment.WordAlignmentTester.SentencePair;
-import nlp.assignments.alignment.WordAlignmentTester.Tester;
 import nlp.io.IOUtils;
-import nlp.util.*;
+import nlp.util.CommandLineUtils;
+import nlp.util.Pair;
 
 /**
  * Harness for testing word-level alignments.  The code is hard-wired for the
