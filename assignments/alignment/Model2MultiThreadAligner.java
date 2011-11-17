@@ -14,6 +14,7 @@ public class Model2MultiThreadAligner implements WordAligner {
 
 	protected CounterMap<String, String> e2f;
 	protected double NullPositionProbabiliy = 0.2;
+	final int totalIterationTimes = 12;
 	protected final String nullString = "*NULL*";
 
 	@Override

@@ -9,11 +9,12 @@ import nlp.assignments.alignment.WordAlignmentTester.*;
 import nlp.math.DoubleArrays;
 import nlp.util.CounterMap;
 
-public class Model1Aligner implements WordAligner {
+public class Model1Aligner implements ProbobalityWordAligner {
 
 	protected CounterMap<String, String> e2f;
 	protected double NullPositionProbabiliy = 0.2;
 	protected final String nullString = "*NULL*";
+	protected final int totalIterationTimes = 20;
 
 	@Override
 	public Alignment alignSentencePair(SentencePair sentencePair) {
@@ -39,6 +40,12 @@ public class Model1Aligner implements WordAligner {
 	}
 
 	public void train(List<SentencePair> trainingSentencePairs) {
+		TrainProgress(null, trainingSentencePairs);
+	}
+
+	@Override
+	public void TrainProgress(Tester tester,
+			List<SentencePair> trainingSentencePairs) {
 		// EM Algorithm
 		// init e2f;
 		e2f = new CounterMap<String, String>();
@@ -56,8 +63,7 @@ public class Model1Aligner implements WordAligner {
 		e2f.normalize();
 
 		// until not converged
-		int iterationTimes = 20;
-		while (iterationTimes-- > 0) {
+		for (int iterationTimes = 0; iterationTimes < totalIterationTimes; iterationTimes++) {
 			// init another e2f
 			CounterMap<String, String> e2f_new = new CounterMap<String, String>();
 			for (SentencePair sentencePair : trainingSentencePairs) {
@@ -97,6 +103,11 @@ public class Model1Aligner implements WordAligner {
 			e2f_new.normalize();
 			e2f = null; // for garbage collection
 			e2f = e2f_new;
+			System.out.println("training iteration " + (iterationTimes + 1)
+					+ " done.");
+			if (tester != null) {
+				tester.runTest(this);
+			}
 		}
 	}
 
@@ -104,4 +115,5 @@ public class Model1Aligner implements WordAligner {
 			int enLenght, int frLenght) {
 		return (1.0 - NullPositionProbabiliy) / enLenght;
 	}
+
 }

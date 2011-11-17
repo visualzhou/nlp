@@ -4,6 +4,10 @@ package nlp.assignments.alignment;
 import java.util.*;
 import java.io.*;
 
+import sun.tools.tree.ThisExpression;
+
+import nlp.assignments.alignment.WordAlignmentTester.SentencePair;
+import nlp.assignments.alignment.WordAlignmentTester.Tester;
 import nlp.io.IOUtils;
 import nlp.util.*;
 
@@ -182,6 +186,11 @@ public class WordAlignmentTester {
   public static interface WordAligner {
     Alignment alignSentencePair(SentencePair sentencePair);
   }
+  
+  public static interface ProbobalityWordAligner extends WordAligner {
+	void TrainProgress(Tester tester, List<SentencePair> trainingSentencePairs);
+	public void train(List<SentencePair> trainingSentencePairs);
+  }
 
   /**
    * Simple alignment baseline which maps french positions to english positions.
@@ -212,6 +221,7 @@ public class WordAlignmentTester {
     boolean verbose = false;
     String dataset = "mini";
     String model = "baseline";
+    boolean learningProgress = false;
 
     // Update defaults using command line specifications
     if (argMap.containsKey("-path")) {
@@ -237,6 +247,9 @@ public class WordAlignmentTester {
     if (argMap.containsKey("-verbose")) {
       verbose = true;
     }
+    if (argMap.containsKey("-progress")) {
+		learningProgress = true;
+	}
 
     // Read appropriate training and testing sets.
     List<SentencePair> trainingSentencePairs = new ArrayList<SentencePair>();
@@ -271,17 +284,14 @@ public class WordAlignmentTester {
 	}
     else if (model.equalsIgnoreCase("model1")) {
 		Model1Aligner aligner = new Model1Aligner();
-		aligner.train(trainingSentencePairs);
 		wordAligner = aligner;
 	}
     else if (model.equalsIgnoreCase("model2")) {
-		Model1Aligner aligner = new Model2Aligner();
-		aligner.train(trainingSentencePairs);
+		Model2Aligner aligner = new Model2Aligner();
 		wordAligner = aligner;
 	}
     else if (model.equalsIgnoreCase("intersection")) {
 		IntersectionModel aligner = new IntersectionModel();
-		aligner.train(trainingSentencePairs);
 		wordAligner = aligner;
 	}
     else if (model.equalsIgnoreCase("modelthread")) {
@@ -290,10 +300,33 @@ public class WordAlignmentTester {
 		wordAligner = aligner;
 	}
 
+    if (wordAligner instanceof ProbobalityWordAligner) {
+    	if (learningProgress) {
+		Tester tester = new Tester(testSentencePairs, testAlignments);
+		((ProbobalityWordAligner)wordAligner).TrainProgress(tester, trainingSentencePairs);
+    	}
+    	else {
+    		((ProbobalityWordAligner)wordAligner).train(trainingSentencePairs);
+		}
+	}
     // Test model
     test(wordAligner, testSentencePairs, testAlignments, verbose);
   }
 
+	public static class Tester {
+		List<SentencePair> testSentencePairs;
+		Map<Integer, Alignment> testAlignments;
+
+		public Tester(List<SentencePair> testSentencePairs,
+				Map<Integer, Alignment> testAlignments) {
+			this.testSentencePairs = testSentencePairs;
+			this.testAlignments = testAlignments;
+		}
+		public void runTest(WordAligner wordAligner) {
+			test(wordAligner, testSentencePairs, testAlignments, false);
+		}
+	}
+  
   private static void test(WordAligner wordAligner, List<SentencePair> testSentencePairs, Map<Integer, Alignment> testAlignments, boolean verbose) {
     int proposedSureCount = 0;
     int proposedPossibleCount = 0;

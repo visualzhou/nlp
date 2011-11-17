@@ -11,13 +11,14 @@ import nlp.util.CounterMap;
 
 public class IntersectionMultiThreadModel implements WordAligner {
 
-	protected CounterMap<String, String> e2f;
-	protected CounterMap<String, String> f2e;
+	protected CounterMap<String, String> e2f = null;
+	protected CounterMap<String, String> f2e = null;
 
 	protected double NullPositionProbabiliy = 0.2;
 	protected final String nullString = "*NULL*";
 	double alpha = 0.5;
-
+	final int totalIterationTimes = 12;
+	
 	@Override
 	public Alignment alignSentencePair(SentencePair sentencePair) {
 		Alignment alignment = new Alignment();
@@ -113,7 +114,7 @@ public class IntersectionMultiThreadModel implements WordAligner {
 			e2f.normalize();
 
 			// until not converged
-			int iterationTimes = 20;
+			int iterationTimes = totalIterationTimes;
 			while (iterationTimes-- > 0) {
 				// init another e2f
 				CounterMap<String, String> e2f_new = new CounterMap<String, String>();
@@ -157,6 +158,7 @@ public class IntersectionMultiThreadModel implements WordAligner {
 				e2f_new.normalize();
 				e2f = null; // for garbage collection
 				e2f = e2f_new;
+				System.out.println("f2e training iteration "+iterationTimes+" done.");
 			}
 		}
 	}
@@ -191,7 +193,7 @@ public class IntersectionMultiThreadModel implements WordAligner {
 			f2e.normalize();
 
 			// until not converged
-			int iterationTimes = 20;
+			int iterationTimes = totalIterationTimes;
 			while (iterationTimes-- > 0) {
 				// init another e2f
 				CounterMap<String, String> f2e_new = new CounterMap<String, String>();
@@ -231,10 +233,10 @@ public class IntersectionMultiThreadModel implements WordAligner {
 								NullPositionProbabiliy
 										* frSourceProbabilities[0] / sum);
 					}
-
 				}
 				f2e_new.normalize();
 				f2e = f2e_new;
+				System.out.println("f2e training iteration "+iterationTimes+" done.");
 			}
 		}
 	}

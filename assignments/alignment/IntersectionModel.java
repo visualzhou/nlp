@@ -3,13 +3,14 @@ package nlp.assignments.alignment;
 import java.util.List;
 
 import nlp.assignments.alignment.WordAlignmentTester.Alignment;
+import nlp.assignments.alignment.WordAlignmentTester.ProbobalityWordAligner;
 import nlp.assignments.alignment.WordAlignmentTester.SentencePair;
-import nlp.assignments.alignment.WordAlignmentTester.WordAligner;
+import nlp.assignments.alignment.WordAlignmentTester.Tester;
 import nlp.math.DoubleArrays;
 import nlp.math.SloppyMath;
 import nlp.util.CounterMap;
 
-public class IntersectionModel implements WordAligner {
+public class IntersectionModel implements ProbobalityWordAligner {
 
 	protected CounterMap<String, String> e2f;
 	protected CounterMap<String, String> f2e;
@@ -17,6 +18,7 @@ public class IntersectionModel implements WordAligner {
 	protected double NullPositionProbabiliy = 0.2;
 	protected final String nullString = "*NULL*";
 	double alpha = 0.5;
+	protected final int totalIterationTimes = 12;
 
 	@Override
 	public Alignment alignSentencePair(SentencePair sentencePair) {
@@ -62,6 +64,12 @@ public class IntersectionModel implements WordAligner {
 	}
 
 	public void train(List<SentencePair> trainingSentencePairs) {
+		TrainProgress(null, trainingSentencePairs);
+	}
+
+	@Override
+	public void TrainProgress(Tester tester,
+			List<SentencePair> trainingSentencePairs) {
 		// EM Algorithm
 		// init e2f;
 		e2f = new CounterMap<String, String>();
@@ -85,8 +93,7 @@ public class IntersectionModel implements WordAligner {
 		f2e.normalize();
 
 		// until not converged
-		int iterationTimes = 20;
-		while (iterationTimes-- > 0) {
+		for (int iterationTimes = 0; iterationTimes < totalIterationTimes; iterationTimes++) {
 			// init another e2f
 			CounterMap<String, String> e2f_new = new CounterMap<String, String>();
 			CounterMap<String, String> f2e_new = new CounterMap<String, String>();
@@ -160,6 +167,11 @@ public class IntersectionModel implements WordAligner {
 			e2f = null; // for garbage collection
 			e2f = e2f_new;
 			f2e = f2e_new;
+			System.out.println("training iteration " + (iterationTimes + 1)
+					+ " done.");
+			if (tester != null) {
+				tester.runTest(this);
+			}
 		}
 	}
 
