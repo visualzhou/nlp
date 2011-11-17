@@ -12,6 +12,7 @@ public class HeuristicAligner implements WordAligner {
 	CounterMap<String, String> e2fCounterMap = new CounterMap<String, String>();
 	Counter<String> fCounter = new Counter<String>();
 	Counter<String> eCounter = new Counter<String>();
+	double alpha = 0.5;
 
 	@Override
 	public Alignment alignSentencePair(SentencePair sentencePair) {
@@ -25,20 +26,16 @@ public class HeuristicAligner implements WordAligner {
 						/ eCounter.getCount(enWord);
 				// c(f,e)/(c(e) * c(f))
 				// c(f) is a constant
+				double d =Math.abs(j -  1.0 * i / sentencePair.getFrenchWords().size() * sentencePair.getEnglishWords().size());
+				ratio[j] *= Math.exp(-alpha * d);
 			}
 			List<Integer> englishPositions = DoubleArrays.argMaxList(ratio);
 			int englishPosition = -1;
 			if (ratio[englishPositions.get(0)] == 0) {
 				englishPosition = -1; // set to NULL
-			} else {
-				double distance = Double.MAX_VALUE;
-				for (int p : englishPositions) {
-					double d =Math.abs(p -  1.0 * i / sentencePair.getFrenchWords().size() * sentencePair.getEnglishWords().size());
-					if (distance > d) {
-						distance = d;
-						englishPosition = p;
-					}
-				}
+			}
+			else {
+				englishPosition = englishPositions.get(0);
 			}
 			alignment.addAlignment(englishPosition, i, true);
 		}
