@@ -34,7 +34,7 @@ public class CKYParser implements Parser {
 		System.out.println("done.");
 	}
 
-	private List<Tree<String>> annotateTrees(List<Tree<String>> trees) {
+	protected List<Tree<String>> annotateTrees(List<Tree<String>> trees) {
 		List<Tree<String>> annotatedTrees = new ArrayList<Tree<String>>();
 		for (Tree<String> tree : trees) {
 			annotatedTrees.add(TreeAnnotations.annotateTree(tree));
@@ -50,7 +50,7 @@ public class CKYParser implements Parser {
 		return TreeAnnotations.unAnnotateTree(annotatedBestParse);
 	}
 
-	private Tree<String> getBestAnnotatedParse(List<String> sentence) {
+	protected Tree<String> getBestAnnotatedParse(List<String> sentence) {
 		int len = sentence.size();
 		@SuppressWarnings("unchecked")
 		Map<String, Double>[][] table = (HashMap<String, Double>[][]) new HashMap[len + 1][len + 1];
@@ -138,10 +138,14 @@ public class CKYParser implements Parser {
 		// maxRoot = root;
 		// }
 		// }
-		return buildTree(sentence, 0, len, "S", back);
+		return buildTree(sentence, 0, len, getRoot(), back);
 	}
 
-	private Tree<String> buildTree(List<String> sentence, int i, int j,
+	protected String getRoot() {
+		return "S";
+	}
+	
+	protected Tree<String> buildTree(List<String> sentence, int i, int j,
 			String label, Map<String, BackTrace>[][] back) {
 		// for a single word
 		if (i == j - 1) {
@@ -178,7 +182,8 @@ public class CKYParser implements Parser {
 		return new Tree<String>(label, childrenList);
 	}
 
-	private <L> Tree<L> buildUnaryTree(List<L> path, List<Tree<L>> leafChildren) {
+	protected <L> Tree<L> buildUnaryTree(List<L> path,
+			List<Tree<L>> leafChildren) {
 		List<Tree<L>> trees = leafChildren;
 		for (int k = path.size() - 1; k >= 0; k--) {
 			trees = Collections.singletonList(new Tree<L>(path.get(k), trees));
@@ -186,7 +191,7 @@ public class CKYParser implements Parser {
 		return trees.get(0);
 	}
 
-	static class BackTrace {
+	protected static class BackTrace {
 		public int k;
 		public String B, C;
 		private UnaryRule unaryRule;

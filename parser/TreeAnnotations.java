@@ -69,4 +69,64 @@ public class TreeAnnotations {
 				.transformTree(debinarizedTree);
 		return unAnnotatedTree;
 	}
+
+	static int horizontal = 2;
+	static boolean useparent = true;
+
+	public static Tree<String> annotateTreeMarkov(Tree<String> unAnnotatedTree) {
+		Tree<String> annotatedTree = binarizeTreeMarkov(unAnnotatedTree, "root");
+//		System.out.println(Trees.PennTreeRenderer.render(unAnnotatedTree));
+//		System.out.println(Trees.PennTreeRenderer.render(annotatedTree));
+//		System.out.println(Trees.PennTreeRenderer.render(unAnnotateTree(annotatedTree)));
+		return annotatedTree;
+	}
+
+	private static Tree<String> binarizeTreeMarkov(Tree<String> tree,
+			String parent) {
+		String label = tree.getLabel();
+		String currentLabel = useparent ? String.format("%s^%s", label, parent) : label;
+		if (tree.isLeaf()) {
+			return new Tree<String>(label);
+		}
+		if (tree.isPreTerminal()) {
+			currentLabel = label;
+		}
+		if (tree.getChildren().size() == 1) {
+			return new Tree<String>(currentLabel,
+					Collections.singletonList(binarizeTreeMarkov(tree
+							.getChildren().get(0), label)));
+		}
+		// otherwise, it's a binary-or-more local tree, so decompose it into a
+		// sequence of binary and unary trees.
+
+		Tree<String> intermediateTree = binarizeTreeMarkovHelper(tree, tree
+				.getChildren().size() - 1, currentLabel, label);
+		//return new Tree<String>(currentLabel, Collections.singletonList(intermediateTree));
+		return new Tree<String>(currentLabel, intermediateTree.getChildren());
+	}
+
+	private static Tree<String> binarizeTreeMarkovHelper(Tree<String> tree,
+			int numChildrenToBeGenerated, String currentLabel,
+			String parentForLowerLevel) {
+
+		Tree<String> rightTree = tree.getChildren().get(
+				numChildrenToBeGenerated);
+		List<Tree<String>> children = new ArrayList<Tree<String>>();
+		if (numChildrenToBeGenerated > 0) {
+			Tree<String> leftTree = binarizeTreeMarkovHelper(tree,
+					numChildrenToBeGenerated - 1, currentLabel,
+					parentForLowerLevel);
+			// left
+			children.add(leftTree);
+		}
+		// right
+		children.add(binarizeTreeMarkov(rightTree, parentForLowerLevel));
+		StringBuilder sb = new StringBuilder();
+		for (int i = Math.max(0, numChildrenToBeGenerated - horizontal); i <= numChildrenToBeGenerated; i++) {
+			sb.append(String
+					.format("_%s", tree.getChildren().get(i).getLabel()));
+		}
+		String intermediateLabel = String.format("@%s->..%s", currentLabel, sb.toString());
+		return new Tree<String>(intermediateLabel, children);
+	}
 }

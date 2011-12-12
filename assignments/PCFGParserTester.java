@@ -73,6 +73,9 @@ public class PCFGParserTester {
 		String model = argMap.get("-model");
 		if (model.equalsIgnoreCase("CKY") || model.equalsIgnoreCase("CYK")) {
 			parser = new nlp.parser.CKYParser(trainTrees);
+		} else if (model.equalsIgnoreCase("markov")) {
+			parser = new nlp.parser.CKYParserMarkov(trainTrees);
+
 		} else {
 			parser = new nlp.parser.BaselineParser(trainTrees);
 		}
