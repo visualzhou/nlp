@@ -19,6 +19,31 @@ public class Trees {
   public static interface TreeTransformer<E> {
     Tree<E> transformTree(Tree<E> tree);
   }
+  
+  public static class AnnotationStripper implements TreeTransformer<String> {
+	  
+	public static String transformLabel(Tree<String> tree) {
+		String transformedLabel = tree.getLabel();
+		int cutIndex = transformedLabel.indexOf('^');
+		if (cutIndex > 0 && !tree.isLeaf()) {
+			transformedLabel = new String(transformedLabel.substring(0,
+					cutIndex));
+		}
+		return transformedLabel;
+	}
+	  
+    public Tree<String> transformTree(Tree<String> tree) {
+      if (tree.isLeaf()) {
+    	return new Tree<String>(tree.getLabel());
+      }
+      String transformedLabel = transformLabel( tree ); 
+      List<Tree<String>> transformedChildren = new ArrayList<Tree<String>>();
+      for (Tree<String> child : tree.getChildren()) {
+        transformedChildren.add(transformTree(child));
+      }
+      return new Tree<String>(transformedLabel, transformedChildren);
+    }
+  }
 
   public static class FunctionNodeStripper implements TreeTransformer<String> {
 	  

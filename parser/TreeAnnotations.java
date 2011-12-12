@@ -65,12 +65,14 @@ public class TreeAnnotations {
 						return s.startsWith("@");
 					}
 				});
-		Tree<String> unAnnotatedTree = (new Trees.FunctionNodeStripper())
+		Tree<String> unAnnotatedTree = (new Trees.AnnotationStripper())
 				.transformTree(debinarizedTree);
 		return unAnnotatedTree;
 	}
 
+
 	static int horizontal = 2;
+
 	static boolean useparent = true;
 
 	public static Tree<String> annotateTreeMarkov(Tree<String> unAnnotatedTree) {
