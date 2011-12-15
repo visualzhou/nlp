@@ -129,15 +129,6 @@ public class CKYParser implements Parser {
 			}
 		}
 
-		// double max = 0;
-		// String maxRoot = null;
-		// Map<String, Double> rootMap = table[0][len];
-		// for (String root : rootMap.keySet()) {
-		// if (!root.startsWith("@") && max < rootMap.get(root)) {
-		// max = rootMap.get(root);
-		// maxRoot = root;
-		// }
-		// }
 		return buildTree(sentence, 0, len, getRoot(), back);
 	}
 

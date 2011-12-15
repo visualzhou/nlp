@@ -23,7 +23,12 @@ public class CKYParserMarkov extends CKYParser {
 	@Override
 	protected String getRoot()
 	{
-		return "S^ROOT";
+		if (TreeAnnotations.useparent) {			
+			return "S^ROOT";
+		}
+		else {
+			return "ROOT";
+		}
 	}
 
 
