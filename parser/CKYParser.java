@@ -32,8 +32,7 @@ public class CKYParser implements Parser {
 		uc = new UnaryClosure(grammar);
 		// System.out.println(uc);
 		System.out.print("Setting up a CKY parser ... ");
-		// lexicon = new Lexicon(trainTrees);
-		lexicon = new Lexicon(annotatedTrainTrees);
+		lexicon = Lexicon.createLexicon(annotatedTrainTrees);
 		System.out.println("done.");
 	}
 

@@ -106,7 +106,7 @@ public class BaselineParser implements Parser {
 
 		System.out
 				.print("Discarding grammar and setting up a baseline parser ... ");
-		lexicon = new Lexicon(annotatedTrainTrees);
+		lexicon = Lexicon.createLexicon(annotatedTrainTrees);
 		knownParses = new CounterMap<List<String>, Tree<String>>();
 		spanToCategories = new CounterMap<Integer, String>();
 		for (Tree<String> trainTree : annotatedTrainTrees) {
