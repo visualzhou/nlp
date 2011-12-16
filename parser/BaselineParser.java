@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import nlp.ling.Tree;
+import nlp.parser.Grammar.GrammarBuilder;
 import nlp.util.CounterMap;
 
 /**
@@ -97,7 +98,8 @@ public class BaselineParser implements Parser {
 		System.out.println("done.");
 
 		System.out.print("Building grammar ... ");
-		Grammar grammar = new Grammar(annotatedTrainTrees);
+		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(annotatedTrainTrees);
+		Grammar grammar = grammarBuilder.buildGrammar();
 		System.out.println("done. (" + grammar.getStates().size() + " states)");
 		UnaryClosure uc = new UnaryClosure(grammar);
 		System.out.println(uc);

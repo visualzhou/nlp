@@ -35,9 +35,10 @@ public class Lexicon {
 			c_word += 1.0;
 			c_tag_and_word += typeTagCounter.getCount(tag) / totalWordTypes;
 		}
-		double p_word = (1.0 + c_word) / (totalTokens + 1.0);
+		//double p_word = (1.0 + c_word) / (totalTokens + 1.0);
 		double p_tag_given_word = c_tag_and_word / c_word;
-		return p_tag_given_word / p_tag * p_word;
+		//return p_tag_given_word / p_tag * p_word;
+		return p_tag_given_word / p_tag;
 	}
 
 	public Lexicon(List<Tree<String>> trainTrees) {

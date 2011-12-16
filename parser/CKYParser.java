@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import nlp.ling.Tree;
+import nlp.parser.Grammar.GrammarBuilder;
 
 public class CKYParser implements Parser {
 
@@ -21,7 +22,8 @@ public class CKYParser implements Parser {
 		System.out.println("done.");
 
 		System.out.print("Building grammar ... ");
-		grammar = new Grammar(annotatedTrainTrees);
+		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(annotatedTrainTrees);
+		grammar = grammarBuilder.buildGrammar();
 		System.out.println("done. ("
 				+ grammar.getStates().size()
 				+ " states, "
@@ -30,7 +32,8 @@ public class CKYParser implements Parser {
 		uc = new UnaryClosure(grammar);
 		// System.out.println(uc);
 		System.out.print("Setting up a CKY parser ... ");
-		lexicon = new Lexicon(trainTrees);
+		// lexicon = new Lexicon(trainTrees);
+		lexicon = new Lexicon(annotatedTrainTrees);
 		System.out.println("done.");
 	}
 

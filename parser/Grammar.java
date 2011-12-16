@@ -17,15 +17,19 @@ import nlp.util.Counter;
  * frequency estimates off of training trees.
  */
 public class Grammar {
+	// rules, which is a grammar all about
+	List<BinaryRule> binaryRules = new ArrayList<BinaryRule>();
+	List<UnaryRule> unaryRules = new ArrayList<UnaryRule>();
+	// lookup tables
 	Map<String, List<BinaryRule>> binaryRulesByLeftChild = new HashMap<String, List<BinaryRule>>();
 	Map<String, List<BinaryRule>> binaryRulesByRightChild = new HashMap<String, List<BinaryRule>>();
 	Map<String, List<BinaryRule>> binaryRulesByParent = new HashMap<String, List<BinaryRule>>();
-	List<BinaryRule> binaryRules = new ArrayList<BinaryRule>();
 	Map<String, List<UnaryRule>> unaryRulesByChild = new HashMap<String, List<UnaryRule>>();
 	Map<String, List<UnaryRule>> unaryRulesByParent = new HashMap<String, List<UnaryRule>>();
-	List<UnaryRule> unaryRules = new ArrayList<UnaryRule>();
+	// states for statistic
 	Set<String> states = new HashSet<String>();
 
+	// lookup methods
 	public List<BinaryRule> getBinaryRulesByLeftChild(String leftChild) {
 		return CollectionUtils.getValueList(binaryRulesByLeftChild, leftChild);
 	}
@@ -59,6 +63,8 @@ public class Grammar {
 		return states;
 	}
 
+	// lookup methods end
+
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		List<String> ruleStrings = new ArrayList<String>();
@@ -79,6 +85,7 @@ public class Grammar {
 		return sb.toString();
 	}
 
+	// constructor helper
 	private void addBinary(BinaryRule binaryRule) {
 		states.add(binaryRule.getParent());
 		states.add(binaryRule.getLeftChild());
@@ -102,14 +109,29 @@ public class Grammar {
 				unaryRule);
 	}
 
-	public Grammar(List<Tree<String>> trainTrees) {
-		Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
-		Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
+	/**
+	 * Construct a grammar with binary, unary rules.
+	 * Set the probability as relative frequency.
+	 * 
+	 * @param unaryRuleCounter
+	 *            Counter for all unary rules
+	 * @param binaryRuleCounter
+	 *            Counter for all binary rules
+	 */
+	public Grammar(Counter<UnaryRule> unaryRuleCounter,
+			Counter<BinaryRule> binaryRuleCounter) {
+		// construct symbolCounter
 		Counter<String> symbolCounter = new Counter<String>();
-		for (Tree<String> trainTree : trainTrees) {
-			tallyTree(trainTree, symbolCounter, unaryRuleCounter,
-					binaryRuleCounter);
+		for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
+			symbolCounter.incrementCount(unaryRule.getParent(),
+					unaryRuleCounter.getCount(unaryRule));
 		}
+		for (BinaryRule binaryRule : binaryRuleCounter.keySet()) {
+			symbolCounter.incrementCount(binaryRule.getParent(),
+					binaryRuleCounter.getCount(binaryRule));
+		}
+
+		// set score and build lookup table
 		for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
 			double unaryProbability = unaryRuleCounter.getCount(unaryRule)
 					/ symbolCounter.getCount(unaryRule.getParent());
@@ -124,40 +146,60 @@ public class Grammar {
 		}
 	}
 
-	private void tallyTree(Tree<String> tree, Counter<String> symbolCounter,
-			Counter<UnaryRule> unaryRuleCounter,
-			Counter<BinaryRule> binaryRuleCounter) {
-		if (tree.isLeaf())
-			return;
-		if (tree.isPreTerminal())
-			return;
-		if (tree.getChildren().size() == 1) {
-			UnaryRule unaryRule = makeUnaryRule(tree);
-			symbolCounter.incrementCount(tree.getLabel(), 1.0);
-			unaryRuleCounter.incrementCount(unaryRule, 1.0);
-		}
-		if (tree.getChildren().size() == 2) {
-			BinaryRule binaryRule = makeBinaryRule(tree);
-			symbolCounter.incrementCount(tree.getLabel(), 1.0);
-			binaryRuleCounter.incrementCount(binaryRule, 1.0);
-		}
-		if (tree.getChildren().size() < 1 || tree.getChildren().size() > 2) {
-			throw new RuntimeException(
-					"Attempted to construct a Grammar with an illegal tree (unbinarized?): "
-							+ tree);
-		}
-		for (Tree<String> child : tree.getChildren()) {
-			tallyTree(child, symbolCounter, unaryRuleCounter, binaryRuleCounter);
-		}
-	}
-
-	private UnaryRule makeUnaryRule(Tree<String> tree) {
+	public static UnaryRule makeUnaryRule(Tree<String> tree) {
 		return new UnaryRule(tree.getLabel(), tree.getChildren().get(0)
 				.getLabel());
 	}
 
-	private BinaryRule makeBinaryRule(Tree<String> tree) {
+	public static BinaryRule makeBinaryRule(Tree<String> tree) {
 		return new BinaryRule(tree.getLabel(), tree.getChildren().get(0)
 				.getLabel(), tree.getChildren().get(1).getLabel());
+	}
+
+	public static interface GrammarBuilder {
+		public Grammar buildGrammar();
+	}
+
+	public static class DefaultGrammarBuilder implements GrammarBuilder {
+		List<Tree<String>> trainTrees;
+
+		public DefaultGrammarBuilder(List<Tree<String>> trainTrees) {
+			this.trainTrees = trainTrees;
+		}
+
+		@Override
+		public Grammar buildGrammar() {
+			Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
+			Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
+			for (Tree<String> trainTree : trainTrees) {
+				tallyTree(trainTree, unaryRuleCounter, binaryRuleCounter);
+			}
+			return new Grammar(unaryRuleCounter, binaryRuleCounter);
+		}
+
+		private void tallyTree(Tree<String> tree,
+				Counter<UnaryRule> unaryRuleCounter,
+				Counter<BinaryRule> binaryRuleCounter) {
+			if (tree.isLeaf())
+				return;
+			if (tree.isPreTerminal())
+				return;
+			if (tree.getChildren().size() == 1) {
+				UnaryRule unaryRule = makeUnaryRule(tree);
+				unaryRuleCounter.incrementCount(unaryRule, 1.0);
+			}
+			if (tree.getChildren().size() == 2) {
+				BinaryRule binaryRule = makeBinaryRule(tree);
+				binaryRuleCounter.incrementCount(binaryRule, 1.0);
+			}
+			if (tree.getChildren().size() < 1 || tree.getChildren().size() > 2) {
+				throw new RuntimeException(
+						"Attempted to construct a Grammar with an illegal tree (unbinarized?): "
+								+ tree);
+			}
+			for (Tree<String> child : tree.getChildren()) {
+				tallyTree(child, unaryRuleCounter, binaryRuleCounter);
+			}
+		}
 	}
 }
