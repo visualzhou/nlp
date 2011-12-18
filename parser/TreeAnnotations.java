@@ -71,8 +71,8 @@ public class TreeAnnotations {
 	}
 
 
-	static int horizontal = 2;
-	static boolean useparent = true;
+	static int horizontal = 0;
+	static boolean useparent = false;
 
 	public static Tree<String> annotateTreeMarkov(Tree<String> unAnnotatedTree) {
 		Tree<String> annotatedTree = binarizeTreeMarkov(unAnnotatedTree, "root");

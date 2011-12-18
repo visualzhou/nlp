@@ -11,42 +11,46 @@ import nlp.util.Counter;
 import nlp.util.CounterMap;
 
 public class GrammarSpliter {
-	Map<String, List<String>> grammarVariance;
+	Map<String, List<String>> stateVariance;
 	Grammar newGrammar;
 	SimpleLexicon newLexicon;
 	final static char LableMark = '^';
+	Map<String, List<String>> splitMap;
 
 	public GrammarSpliter(Grammar grammar, SimpleLexicon lexicon) {
-		Map<String, List<String>> statesMap = splitStates(grammar.getStates());
-		splitOldGrammar(grammar, statesMap);
+		splitMap = splitStates(grammar.getStates());
+		splitOldGrammar(grammar);
 		buildGrammarVariance();
-		buildSimpleLexicon(lexicon, statesMap);
+		buildSimpleLexicon(lexicon, splitMap);
 	}
 
 	public Grammar getNewGrammar() {
 		return newGrammar;
 	}
-	
+
 	public SimpleLexicon getNewLexicon() {
 		return newLexicon;
 	}
 
 	public List<String> getVariance(String state) {
-		return grammarVariance.get(state);
+		return stateVariance.get(state);
+	}
+
+	public List<String> getSplitResult(String state) {
+		return splitMap.get(state);
 	}
 
 	private void buildGrammarVariance() {
-		grammarVariance = new HashMap<String, List<String>>(98);
+		stateVariance = new HashMap<String, List<String>>(98);
 		for (String state : newGrammar.getStates()) {
-			CollectionUtils.addToValueList(grammarVariance,
-					getBaseState(state), state);
+			CollectionUtils.addToValueList(stateVariance, getBaseState(state),
+					state);
 		}
 	}
 
 	private void buildSimpleLexicon(SimpleLexicon lexicon,
 			Map<String, List<String>> statesMap) {
 		CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
-		Counter<String> tagCounter = new Counter<String>();
 		CounterMap<String, String> oldWordToTagCounters = lexicon
 				.getWordToTagCounters();
 
@@ -57,11 +61,10 @@ public class GrammarSpliter {
 				double score = vCounter.getCount(oldTag) / 2.0;
 				for (String newTag : newTagList) {
 					wordToTagCounters.incrementCount(word, newTag, score);
-					tagCounter.incrementCount(newTag, score);
 				}
 			}
 		}
-		lexicon = new SimpleLexicon(wordToTagCounters, tagCounter);
+		newLexicon = new SimpleLexicon(wordToTagCounters);
 	}
 
 	public static String getBaseState(String state) {
@@ -107,16 +110,15 @@ public class GrammarSpliter {
 		return statesMap;
 	}
 
-	private void splitOldGrammar(Grammar oldGrammar,
-			Map<String, List<String>> statesMap) {
+	private void splitOldGrammar(Grammar oldGrammar) {
 		Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
 		Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
 		List<BinaryRule> oldBinaryRules = oldGrammar.getBinaryRules();
 		List<UnaryRule> oldUnaryRules = oldGrammar.getUnaryRules();
 		for (BinaryRule binaryRule : oldBinaryRules) {
-			for (String newparent : statesMap.get(binaryRule.getParent())) {
-				for (String newleft : statesMap.get(binaryRule.getLeftChild())) {
-					for (String newright : statesMap.get(binaryRule
+			for (String newparent : splitMap.get(binaryRule.getParent())) {
+				for (String newleft : splitMap.get(binaryRule.getLeftChild())) {
+					for (String newright : splitMap.get(binaryRule
 							.getRightChild())) {
 						// split the score
 						// TODO: how many rules are create and discard?
@@ -128,8 +130,8 @@ public class GrammarSpliter {
 			}
 		}
 		for (UnaryRule unaryRule : oldUnaryRules) {
-			for (String newparent : statesMap.get(unaryRule.getParent())) {
-				for (String newchild : statesMap.get(unaryRule.getChild())) {
+			for (String newparent : splitMap.get(unaryRule.getParent())) {
+				for (String newchild : splitMap.get(unaryRule.getChild())) {
 					// split the score
 					unaryRuleCounter.incrementCount(new UnaryRule(newparent,
 							newchild), unaryRule.getScore() / 4.0);
@@ -138,15 +140,15 @@ public class GrammarSpliter {
 		}
 		newGrammar = new Grammar(unaryRuleCounter, binaryRuleCounter);
 	}
-	
-//	public static void main(String[] args) {
-//		Counter<BinaryRule> bCounter = new Counter<BinaryRule>();
-//		Counter<UnaryRule> uCounter = new Counter<UnaryRule>();
-//		bCounter.incrementCount(new BinaryRule("NP^0", "VB^1", "NP^1"), 1.0);
-//		uCounter.incrementCount(new UnaryRule("NP", "NPP"), 1.0);
-//		Grammar grammar = new Grammar(uCounter, bCounter);
-//		GrammarSpliter gs = new GrammarSpliter(grammar, lexicon);
-//		System.out.println(gs.getNewGrammar());
-//		System.out.println(gs.getVariance("NP"));
-//	}
+
+	// public static void main(String[] args) {
+	// Counter<BinaryRule> bCounter = new Counter<BinaryRule>();
+	// Counter<UnaryRule> uCounter = new Counter<UnaryRule>();
+	// bCounter.incrementCount(new BinaryRule("NP^0", "VB^1", "NP^1"), 1.0);
+	// uCounter.incrementCount(new UnaryRule("NP", "NPP"), 1.0);
+	// Grammar grammar = new Grammar(uCounter, bCounter);
+	// GrammarSpliter gs = new GrammarSpliter(grammar, lexicon);
+	// System.out.println(gs.getNewGrammar());
+	// System.out.println(gs.getVariance("NP"));
+	// }
 }

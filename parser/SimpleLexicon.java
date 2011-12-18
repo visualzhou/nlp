@@ -8,9 +8,8 @@ import nlp.util.CounterMap;
 
 public class SimpleLexicon extends Lexicon {
 
-	public SimpleLexicon(CounterMap<String, String> wordToTagCounters,
-			Counter<String> tagCounter) {
-		super(wordToTagCounters, tagCounter);
+	public SimpleLexicon(CounterMap<String, String> wordToTagCounters) {
+		super(wordToTagCounters);
 	}
 	
 	/**
@@ -35,18 +34,16 @@ public class SimpleLexicon extends Lexicon {
 	
 	public static SimpleLexicon createSimpleLexicon(List<Tree<String>> trainTrees) {
 		CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
-		Counter<String> tagCounter = new Counter<String>();
 		for (Tree<String> trainTree : trainTrees) {
 			List<String> words = trainTree.getYield();
 			List<String> tags = trainTree.getPreTerminalYield();
 			for (int position = 0; position < words.size(); position++) {
 				String word = words.get(position);
 				String tag = tags.get(position);
-				tagCounter.incrementCount(tag, 1.0);
 				wordToTagCounters.incrementCount(word, tag, 1.0);
 			}
 		}
-		return new SimpleLexicon(wordToTagCounters, tagCounter);
+		return new SimpleLexicon(wordToTagCounters);
 	}
 //	public Counter<String> getTagCounter()
 //	{

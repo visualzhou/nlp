@@ -54,9 +54,17 @@ public class Grammar {
 	public BinaryRule getBinaryRule(BinaryRule binaryRule) {
 		return binaryRulesMap.get(binaryRule);
 	}
+	
+	public double getBinaryScore(String parent, String left, String right) {
+		return binaryRulesMap.get(new BinaryRule(parent, left, right)).getScore();
+	}
 
 	public UnaryRule getUnaryRule(UnaryRule unaryRule) {
 		return unaryRulesMap.get(unaryRule);
+	}
+	
+	public double getUnaryScore(String parent, String child) {
+		return unaryRulesMap.get(new UnaryRule(parent, child)).getScore();
 	}
 
 	public List<BinaryRule> getBinaryRuleByChildren(String left, String right) {
@@ -154,17 +162,22 @@ public class Grammar {
 	 * Use intern String in the rule
 	 */
 	public static UnaryRule makeUnaryRule(Tree<String> tree) {
-		return new UnaryRule(tree.getLabel().intern(), tree.getChildren()
-				.get(0).getLabel().intern());
+//		return new UnaryRule(tree.getLabel().intern(), tree.getChildren()
+//				.get(0).getLabel().intern());
+		return new UnaryRule(tree.getLabel(), tree.getChildren()
+				.get(0).getLabel());
 	}
 
 	/**
 	 * Use intern String in the rule
 	 */
 	public static BinaryRule makeBinaryRule(Tree<String> tree) {
-		return new BinaryRule(tree.getLabel().intern(), tree.getChildren()
-				.get(0).getLabel().intern(), tree.getChildren().get(1)
-				.getLabel().intern());
+//		return new BinaryRule(tree.getLabel().intern(), tree.getChildren()
+//				.get(0).getLabel().intern(), tree.getChildren().get(1)
+//				.getLabel().intern());
+		return new BinaryRule(tree.getLabel(), tree.getChildren()
+				.get(0).getLabel(), tree.getChildren().get(1)
+				.getLabel());
 	}
 
 	public static interface GrammarBuilder {

@@ -76,6 +76,8 @@ public class PCFGParserTester {
 		} else if (model.equalsIgnoreCase("markov")) {
 			parser = new nlp.parser.CKYParserMarkov(trainTrees);
 
+		} else if (model.equalsIgnoreCase("tester")) {
+			parser = new nlp.parser.CKYParserTester(trainTrees);
 		} else {
 			parser = new nlp.parser.BaselineParser(trainTrees);
 		}
