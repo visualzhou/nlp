@@ -23,8 +23,9 @@ public class CKYParser implements Parser {
 
 		System.out.print("Building grammar ... ");
 		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(
-				annotatedTrainTrees);
+				annotatedTrainTrees, false);
 		grammar = grammarBuilder.buildGrammar();
+		grammar.becomeFull();
 		System.out.println("done. ("
 				+ grammar.getStates().size()
 				+ " states, "

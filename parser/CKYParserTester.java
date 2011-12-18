@@ -12,8 +12,8 @@ public class CKYParserTester extends CKYParser {
 		System.out.print("Annotating / binarizing training trees ... ");
 		List<Tree<String>> annotatedTrainTrees = annotateTrees(trainTrees);
 		System.out.println("done.");
-		EMGrammarTrainer trainer = new EMGrammarTrainer();
-		trainer.trainGrammar(annotatedTrainTrees, null, null);
+//		EMGrammarTrainer trainer = new EMGrammarTrainer();
+//		trainer.trainGrammar(annotatedTrainTrees, null, null);
 	}
 
 	@Override

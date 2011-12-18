@@ -120,8 +120,6 @@ public class GrammarSpliter {
 				for (String newleft : splitMap.get(binaryRule.getLeftChild())) {
 					for (String newright : splitMap.get(binaryRule
 							.getRightChild())) {
-						// split the score
-						// TODO: how many rules are create and discard?
 						binaryRuleCounter.incrementCount(new BinaryRule(
 								newparent, newleft, newright), binaryRule
 								.getScore() / 8.0);
@@ -138,7 +136,7 @@ public class GrammarSpliter {
 				}
 			}
 		}
-		newGrammar = new Grammar(unaryRuleCounter, binaryRuleCounter);
+		newGrammar = new Grammar(unaryRuleCounter, binaryRuleCounter, false);
 	}
 
 	// public static void main(String[] args) {

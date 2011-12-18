@@ -17,6 +17,8 @@ import nlp.util.Counter;
  * frequency estimates off of training trees.
  */
 public class Grammar {
+	// flag for a full grammar which supports all lookup
+	boolean full;
 	// rules, which is a grammar all about
 	List<BinaryRule> binaryRules = new ArrayList<BinaryRule>();
 	List<UnaryRule> unaryRules = new ArrayList<UnaryRule>();
@@ -26,7 +28,6 @@ public class Grammar {
 	Map<String, List<UnaryRule>> unaryRulesByParent = new HashMap<String, List<UnaryRule>>();
 	Map<BinaryRule, BinaryRule> binaryRulesMap = new HashMap<BinaryRule, BinaryRule>();
 	Map<UnaryRule, UnaryRule> unaryRulesMap = new HashMap<UnaryRule, UnaryRule>();
-	Map<String, List<BinaryRule>> binaryRuleByChildren = new HashMap<String, List<BinaryRule>>();
 	// states for statistic
 	Set<String> states = new HashSet<String>();
 
@@ -54,21 +55,18 @@ public class Grammar {
 	public BinaryRule getBinaryRule(BinaryRule binaryRule) {
 		return binaryRulesMap.get(binaryRule);
 	}
-	
+
 	public double getBinaryScore(String parent, String left, String right) {
-		return binaryRulesMap.get(new BinaryRule(parent, left, right)).getScore();
+		return binaryRulesMap.get(new BinaryRule(parent, left, right))
+				.getScore();
 	}
 
 	public UnaryRule getUnaryRule(UnaryRule unaryRule) {
 		return unaryRulesMap.get(unaryRule);
 	}
-	
+
 	public double getUnaryScore(String parent, String child) {
 		return unaryRulesMap.get(new UnaryRule(parent, child)).getScore();
-	}
-
-	public List<BinaryRule> getBinaryRuleByChildren(String left, String right) {
-		return binaryRuleByChildren.get(buildStringPair(left, right));
 	}
 
 	public Set<String> getStates() {
@@ -91,34 +89,39 @@ public class Grammar {
 		return sb.toString();
 	}
 
-	private static String buildStringPair(String a, String b) {
-		return String.format("%s&&%s", a, b);
-	}
-
 	// constructor helper
 	private void addBinary(BinaryRule binaryRule) {
 		states.add(binaryRule.getParent());
 		states.add(binaryRule.getLeftChild());
 		states.add(binaryRule.getRightChild());
 		binaryRules.add(binaryRule);
+		// optional
+		if (full) {
+			addBinaryLookup(binaryRule);
+		}
+		binaryRulesMap.put(binaryRule, binaryRule);
+	}
+
+	private void addBinaryLookup(BinaryRule binaryRule) {
 		CollectionUtils.addToValueList(binaryRulesByParent,
 				binaryRule.getParent(), binaryRule);
 		CollectionUtils.addToValueList(binaryRulesByLeftChild,
 				binaryRule.getLeftChild(), binaryRule);
-		CollectionUtils.addToValueList(
-				binaryRuleByChildren,
-				buildStringPair(binaryRule.getLeftChild(),
-						binaryRule.getRightChild()), binaryRule);
-		binaryRulesMap.put(binaryRule, binaryRule);
 	}
 
 	private void addUnary(UnaryRule unaryRule) {
 		states.add(unaryRule.getParent());
 		states.add(unaryRule.getChild());
 		unaryRules.add(unaryRule);
+		if (full) {
+			addUnaryLookup(unaryRule);
+		}
+		unaryRulesMap.put(unaryRule, unaryRule);
+	}
+
+	private void addUnaryLookup(UnaryRule unaryRule) {
 		CollectionUtils.addToValueList(unaryRulesByParent,
 				unaryRule.getParent(), unaryRule);
-		unaryRulesMap.put(unaryRule, unaryRule);
 	}
 
 	/**
@@ -132,6 +135,12 @@ public class Grammar {
 	 */
 	public Grammar(Counter<UnaryRule> unaryRuleCounter,
 			Counter<BinaryRule> binaryRuleCounter) {
+		this(unaryRuleCounter, binaryRuleCounter, true);
+	}
+
+	public Grammar(Counter<UnaryRule> unaryRuleCounter,
+			Counter<BinaryRule> binaryRuleCounter, boolean isFull) {
+		full = isFull;
 		// construct symbolCounter
 		Counter<String> symbolCounter = new Counter<String>();
 		for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
@@ -158,26 +167,36 @@ public class Grammar {
 		}
 	}
 
+	public void becomeFull() {
+		// set score and build lookup table
+		for (UnaryRule unaryRule : unaryRules) {
+			addUnaryLookup(unaryRule);
+		}
+		for (BinaryRule binaryRule : binaryRules) {
+			addBinaryLookup(binaryRule);
+		}
+
+	}
+
 	/**
 	 * Use intern String in the rule
 	 */
 	public static UnaryRule makeUnaryRule(Tree<String> tree) {
-//		return new UnaryRule(tree.getLabel().intern(), tree.getChildren()
-//				.get(0).getLabel().intern());
-		return new UnaryRule(tree.getLabel(), tree.getChildren()
-				.get(0).getLabel());
+		// return new UnaryRule(tree.getLabel().intern(), tree.getChildren()
+		// .get(0).getLabel().intern());
+		return new UnaryRule(tree.getLabel(), tree.getChildren().get(0)
+				.getLabel());
 	}
 
 	/**
 	 * Use intern String in the rule
 	 */
 	public static BinaryRule makeBinaryRule(Tree<String> tree) {
-//		return new BinaryRule(tree.getLabel().intern(), tree.getChildren()
-//				.get(0).getLabel().intern(), tree.getChildren().get(1)
-//				.getLabel().intern());
-		return new BinaryRule(tree.getLabel(), tree.getChildren()
-				.get(0).getLabel(), tree.getChildren().get(1)
-				.getLabel());
+		// return new BinaryRule(tree.getLabel().intern(), tree.getChildren()
+		// .get(0).getLabel().intern(), tree.getChildren().get(1)
+		// .getLabel().intern());
+		return new BinaryRule(tree.getLabel(), tree.getChildren().get(0)
+				.getLabel(), tree.getChildren().get(1).getLabel());
 	}
 
 	public static interface GrammarBuilder {
@@ -186,9 +205,16 @@ public class Grammar {
 
 	public static class DefaultGrammarBuilder implements GrammarBuilder {
 		List<Tree<String>> trainTrees;
+		boolean isFull;
+
+		public DefaultGrammarBuilder(List<Tree<String>> trainTrees,
+				boolean isFull) {
+			this.trainTrees = trainTrees;
+			this.isFull = isFull;
+		}
 
 		public DefaultGrammarBuilder(List<Tree<String>> trainTrees) {
-			this.trainTrees = trainTrees;
+			this(trainTrees, true);
 		}
 
 		@Override
@@ -198,7 +224,7 @@ public class Grammar {
 			for (Tree<String> trainTree : trainTrees) {
 				tallyTree(trainTree, unaryRuleCounter, binaryRuleCounter);
 			}
-			return new Grammar(unaryRuleCounter, binaryRuleCounter);
+			return new Grammar(unaryRuleCounter, binaryRuleCounter, isFull);
 		}
 
 		private void tallyTree(Tree<String> tree,

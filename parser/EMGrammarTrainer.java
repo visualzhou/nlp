@@ -1,6 +1,7 @@
 package nlp.parser;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import nlp.ling.Tree;
@@ -8,26 +9,37 @@ import nlp.parser.BinaryTree.TraverseAction;
 import nlp.parser.Grammar.GrammarBuilder;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
+import nlp.util.Pair;
 
 public class EMGrammarTrainer implements GrammarBuilder {
 
 	Grammar finalGrammar;
+	Lexicon finalLexicon;
+	List<Tree<String>> trainTrees;
 
-	public void trainGrammar(List<Tree<String>> trainTrees, Grammar grammar,
-			SimpleLexicon lexicon) {
+	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
+		this.trainTrees = trainTrees;
+	}
+
+	public void train() {
 		// 1.1 Get the default grammar
-		GrammarBuilder gb = new Grammar.DefaultGrammarBuilder(trainTrees);
-		grammar = gb.buildGrammar();
-		lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
+		GrammarBuilder gb = new Grammar.DefaultGrammarBuilder(trainTrees, false);
+		Grammar grammar = gb.buildGrammar();
+		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
+		Pair<Grammar, Lexicon> pair = trainGrammar(grammar, lexicon);
+		// only once
+		//finalGrammar = new Grammar()
+	}
 
+	private Pair<Grammar, Lexicon> trainGrammar(Grammar grammar,
+			SimpleLexicon lexicon) {
 		// 1.2 Split the initial training grammar by half all its probabilities
 		// build initial even grammar and lexicon
 		// System.out.println(grammar.toString());
-		System.out.println(lexicon.toString());
 		GrammarSpliter spliter = new GrammarSpliter(grammar, lexicon);
 		grammar = spliter.getNewGrammar();
 		lexicon = spliter.getNewLexicon();
-		System.out.println(lexicon.toString());
+		// System.out.println(lexicon.toString());
 
 		// 1.3 Build binary tree
 		List<BinaryTree<String>> binaryTrees = buildBinaryTree(trainTrees,
@@ -35,20 +47,23 @@ public class EMGrammarTrainer implements GrammarBuilder {
 
 		// 2. EM training
 		for (int emtrainingtimes = 0; emtrainingtimes < 10; emtrainingtimes++) {
+			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(grammar,
 					lexicon, spliter);
 			// loop for all trees
-			for (BinaryTree<String> tree : binaryTrees) {
-				// count posterior probability
-				// helper.tallyTree(tree);
-			}
+			helper.trainOnce(binaryTrees);
+			grammar = helper.getNewGrammar();
+			lexicon = helper.getNewLexicon();
 		}
+		return new Pair<Grammar, Lexicon>(grammar, lexicon);
 	}
 
 	static class GrammarTrainingHelper {
 		Grammar grammar;
 		SimpleLexicon lexicon;
 		GrammarSpliter spliter;
+		Grammar newGrammar;
+		SimpleLexicon newLexicon;
 
 		public GrammarTrainingHelper(Grammar grammar, SimpleLexicon lexicon,
 				GrammarSpliter spliter) {
@@ -57,18 +72,48 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			this.spliter = spliter;
 		}
 
-		public void tallyTree(Tree<String> tree) {
-			// in out probabilities
-			// always use the same tree
+		public Grammar getNewGrammar() {
+			return newGrammar;
+		}
+
+		public SimpleLexicon getNewLexicon() {
+			return newLexicon;
+		}
+
+		public void trainOnce(List<BinaryTree<String>> binaryTrees) {
+			InProbabilityComputer inComputer = new InProbabilityComputer();
+			OutProbabilityComputer outComputer = new OutProbabilityComputer();
+			PosteriorProbabilityCounter posteriorCounter = new PosteriorProbabilityCounter();
+			// compute in probability
+			for (BinaryTree<String> binaryTree : binaryTrees) {
+				binaryTree.postOrdertraverse(inComputer);
+			}
+			// compute out probability
+			for (BinaryTree<String> binaryTree : binaryTrees) {
+				// binaryTree.outProbabilities
+				Collections.fill(binaryTree.outProbabilities,
+						1.0 / binaryTree.lableSize());
+				binaryTree.preOrdertraverse(outComputer);
+			}
+			// compute post probability
+			for (BinaryTree<String> binaryTree : binaryTrees) {
+				binaryTree.preOrdertraverse(posteriorCounter);
+			}
+			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
+					posteriorCounter.binaryRuleCounter, false);
+			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
 		}
 
 		class InProbabilityComputer implements TraverseAction<String> {
 			@Override
 			public void act(BinaryTree<String> tree) {
+				if (tree.isLeaf()) {
+					return;
+				}
 				if (tree.isPreTerminal()) { // tag
-					for (int i = 0; i < tree.labelVariance.size(); i++) {
-						String tag = tree.labelVariance.get(i);
-						tree.inProbabilities.set(i, lexicon.scoreTagging(
+					for (int i = 0; i < tree.lableSize(); i++) {
+						String tag = tree.getLabel(i);
+						tree.SetIn(i, lexicon.scoreTagging(
 								tree.left.getBaseLabel(), tag));
 					}
 					return;
@@ -153,9 +198,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		}
 
 		class PosteriorProbabilityCounter implements TraverseAction<String> {
-			Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
-			Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
-			CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
+			public Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
+			public Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
+			public CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
 
 			@Override
 			public void act(BinaryTree<String> tree) {
@@ -216,16 +261,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 
 	@Override
 	public Grammar buildGrammar() {
-		// TODO Auto-generated method stub
-		return null;
+		return finalGrammar;
 	}
 
-	static class InOutProbability {
-		public double inProbability, outProbability;
-		public final String label;
-
-		public InOutProbability(String label) {
-			this.label = label;
-		}
+	public Lexicon getLexicon() {
+		return finalLexicon;
 	}
 }
