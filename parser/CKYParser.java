@@ -22,7 +22,8 @@ public class CKYParser implements Parser {
 		System.out.println("done.");
 
 		System.out.print("Building grammar ... ");
-		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(annotatedTrainTrees);
+		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(
+				annotatedTrainTrees);
 		grammar = grammarBuilder.buildGrammar();
 		System.out.println("done. ("
 				+ grammar.getStates().size()
@@ -87,12 +88,12 @@ public class CKYParser implements Parser {
 				table[i][j] = new HashMap<String, Double>();
 				back[i][j] = new HashMap<String, BackTrace>();
 				for (int k = i + 1; k < j; k++) { // loop the separate position
+					Map<String, Double> CMap = table[k][j];
 					for (String B : table[i][k].keySet()) {
 						// loop possible left child
 						List<BinaryRule> bRules = grammar
 								.getBinaryRulesByLeftChild(B);
 						for (BinaryRule binaryRule : bRules) {
-							Map<String, Double> CMap = table[k][j];
 							String C = binaryRule.getRightChild();
 							if (CMap.containsKey(C)) {
 								String A = binaryRule.getParent();
@@ -137,7 +138,7 @@ public class CKYParser implements Parser {
 	protected String getRoot() {
 		return "S";
 	}
-	
+
 	protected Tree<String> buildTree(List<String> sentence, int i, int j,
 			String label, Map<String, BackTrace>[][] back) {
 		// for a single word

@@ -1,10 +1,9 @@
 package nlp.ling;
 
 
-import java.util.*;
-
-import nlp.util.CollectionUtils;
-import nlp.util.Counter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Represent linguistic trees, with each node consisting of a label and a list of children.
