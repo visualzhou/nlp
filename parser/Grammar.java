@@ -10,6 +10,7 @@ import java.util.Set;
 import nlp.ling.Tree;
 import nlp.util.CollectionUtils;
 import nlp.util.Counter;
+import nlp.util.Counters;
 
 /**
  * Simple implementation of a PCFG grammar, offering the ability to look up
@@ -26,8 +27,11 @@ public class Grammar {
 	Map<String, List<BinaryRule>> binaryRulesByLeftChild = new HashMap<String, List<BinaryRule>>();
 	Map<String, List<BinaryRule>> binaryRulesByParent = new HashMap<String, List<BinaryRule>>();
 	Map<String, List<UnaryRule>> unaryRulesByParent = new HashMap<String, List<UnaryRule>>();
-	Map<BinaryRule, BinaryRule> binaryRulesMap = new HashMap<BinaryRule, BinaryRule>();
-	Map<UnaryRule, UnaryRule> unaryRulesMap = new HashMap<UnaryRule, UnaryRule>();
+	// for EM algorithm
+	Map<BinaryRule, Double> binaryRulesMap = new HashMap<BinaryRule, Double>();
+	Map<UnaryRule, Double> unaryRulesMap = new HashMap<UnaryRule, Double>();
+	Map<BinaryRule, BinaryRule> selfBinaryMap = new HashMap<BinaryRule, BinaryRule>();
+	Map<UnaryRule, UnaryRule> selfUnaryMap = new HashMap<UnaryRule, UnaryRule>();
 	// states for statistic
 	Set<String> states = new HashSet<String>();
 
@@ -52,23 +56,14 @@ public class Grammar {
 		return unaryRules;
 	}
 
-	public BinaryRule getBinaryRule(BinaryRule binaryRule) {
-		return binaryRulesMap.get(binaryRule);
-	}
-
 	public double getBinaryScore(String parent, String left, String right) {
-		BinaryRule binaryRule = binaryRulesMap.get(new BinaryRule(parent, left,
-				right));
-		return binaryRule == null ? 0.0 : binaryRule.getScore();
-	}
-
-	public UnaryRule getUnaryRule(UnaryRule unaryRule) {
-		return unaryRulesMap.get(unaryRule);
+		Double d = binaryRulesMap.get(new BinaryRule(parent, left, right));
+		return d == null ? 0.0 : d.doubleValue();
 	}
 
 	public double getUnaryScore(String parent, String child) {
-		UnaryRule unaryRule = unaryRulesMap.get(new UnaryRule(parent, child));
-		return unaryRule == null ? 0.0 : unaryRule.getScore();
+		Double d = unaryRulesMap.get(new UnaryRule(parent, child));
+		return d == null ? 0.0 : d.doubleValue();
 	}
 
 	public Set<String> getStates() {
@@ -101,7 +96,6 @@ public class Grammar {
 		if (full) {
 			addBinaryLookup(binaryRule);
 		}
-		binaryRulesMap.put(binaryRule, binaryRule);
 	}
 
 	private void addBinaryLookup(BinaryRule binaryRule) {
@@ -109,6 +103,7 @@ public class Grammar {
 				binaryRule.getParent(), binaryRule);
 		CollectionUtils.addToValueList(binaryRulesByLeftChild,
 				binaryRule.getLeftChild(), binaryRule);
+		selfBinaryMap.put(binaryRule, binaryRule);
 	}
 
 	private void addUnary(UnaryRule unaryRule) {
@@ -118,12 +113,15 @@ public class Grammar {
 		if (full) {
 			addUnaryLookup(unaryRule);
 		}
-		unaryRulesMap.put(unaryRule, unaryRule);
 	}
 
 	private void addUnaryLookup(UnaryRule unaryRule) {
 		CollectionUtils.addToValueList(unaryRulesByParent,
 				unaryRule.getParent(), unaryRule);
+		selfUnaryMap.put(unaryRule, unaryRule);
+	}
+
+	protected Grammar() {
 	}
 
 	/**
@@ -143,6 +141,8 @@ public class Grammar {
 	public Grammar(Counter<UnaryRule> unaryRuleCounter,
 			Counter<BinaryRule> binaryRuleCounter, boolean isFull) {
 		full = isFull;
+//		unaryRuleCounter = Counters.cleanCounter(unaryRuleCounter);
+//		binaryRuleCounter = Counters.cleanCounter(binaryRuleCounter);
 		// construct symbolCounter
 		Counter<String> symbolCounter = new Counter<String>();
 		for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
@@ -167,6 +167,44 @@ public class Grammar {
 			binaryRule.setScore(binaryProbability);
 			addBinary(binaryRule);
 		}
+
+		// set relative probability for EM algorithm
+		if (!isFull) {
+			Counter<BinaryRule> baseBinaryCounter = new Counter<BinaryRule>();
+			Counter<UnaryRule> baseUnaryCounter = new Counter<UnaryRule>();
+			for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
+				baseUnaryCounter.incrementCount(makeBaseRule(unaryRule),
+						unaryRuleCounter.getCount(unaryRule));
+			}
+			for (BinaryRule binaryRule : binaryRuleCounter.keySet()) {
+				baseBinaryCounter.incrementCount(makeBaseRule(binaryRule),
+						binaryRuleCounter.getCount(binaryRule));
+			}
+
+			// set score and build lookup table
+			for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
+				double unaryProbability = unaryRuleCounter.getCount(unaryRule)
+						/ baseUnaryCounter.getCount(makeBaseRule(unaryRule));
+				unaryRulesMap.put(unaryRule, unaryProbability);
+			}
+			for (BinaryRule binaryRule : binaryRuleCounter.keySet()) {
+				double binaryProbability = binaryRuleCounter
+						.getCount(binaryRule)
+						/ baseBinaryCounter.getCount(makeBaseRule(binaryRule));
+				binaryRulesMap.put(binaryRule, binaryProbability);
+			}
+		}
+	}
+
+	private UnaryRule makeBaseRule(UnaryRule unaryRule) {
+		return new UnaryRule(unaryRule.getParent(),
+				GrammarSpliter.getBaseState(unaryRule.getChild()));
+	}
+
+	private BinaryRule makeBaseRule(BinaryRule binaryRule) {
+		return new BinaryRule(binaryRule.getParent(),
+				GrammarSpliter.getBaseState(binaryRule.getLeftChild()),
+				GrammarSpliter.getBaseState(binaryRule.getRightChild()));
 	}
 
 	public void becomeFull() {

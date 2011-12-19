@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import nlp.util.CollectionUtils;
@@ -59,7 +60,7 @@ public class GrammarSpliter {
 			Counter<String> vCounter = oldWordToTagCounters.getCounter(word);
 			for (String oldTag : vCounter.keySet()) {
 				List<String> newTagList = statesMap.get(oldTag);
-				double score = vCounter.getCount(oldTag) / 2.0;
+				double score = vCounter.getCount(oldTag) / 2.0 * getRandom();
 				for (String newTag : newTagList) {
 					wordToTagCounters.incrementCount(word, newTag, score);
 				}
@@ -125,8 +126,8 @@ public class GrammarSpliter {
 					for (String newright : splitMap.get(binaryRule
 							.getRightChild())) {
 						binaryRuleCounter.incrementCount(new BinaryRule(
-								newparent, newleft, newright), binaryRule
-								.getScore() / 8.0);
+								newparent, newleft, newright),
+								binaryRule.getScore() / 8.0 * getRandom());
 					}
 				}
 			}
@@ -135,14 +136,20 @@ public class GrammarSpliter {
 			for (String newparent : splitMap.get(unaryRule.getParent())) {
 				for (String newchild : splitMap.get(unaryRule.getChild())) {
 					// split the score
-					unaryRuleCounter.incrementCount(new UnaryRule(newparent,
-							newchild), unaryRule.getScore() / 4.0);
+					unaryRuleCounter
+							.incrementCount(new UnaryRule(newparent, newchild),
+									unaryRule.getScore() / 4.0 * getRandom());
 				}
 			}
 		}
 		newGrammar = new Grammar(unaryRuleCounter, binaryRuleCounter, false);
 	}
 
+	static Random random = new Random(1);
+
+	private double getRandom() {
+		return 1.0 + (random.nextDouble() - 0.5) / 50;
+	}
 	// public static void main(String[] args) {
 	// Counter<BinaryRule> bCounter = new Counter<BinaryRule>();
 	// Counter<UnaryRule> uCounter = new Counter<UnaryRule>();

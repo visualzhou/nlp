@@ -16,6 +16,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar finalGrammar;
 	Lexicon finalLexicon;
 	List<Tree<String>> trainTrees;
+	Grammar originalGrammar;
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -25,16 +26,19 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		// 1.1 Get the default grammar
 		GrammarBuilder gb = new Grammar.DefaultGrammarBuilder(trainTrees, false);
 		Grammar grammar = gb.buildGrammar();
+		grammar.becomeFull();
+		originalGrammar = grammar;
 		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
-		Pair<Grammar, Lexicon> pair = trainGrammar(grammar, lexicon);
+		Pair<Grammar, SimpleLexicon> pair = trainGrammar(grammar, lexicon);
+		// pair = trainGrammar(pair.getFirst(), pair.getSecond());
 		// only once
 		finalGrammar = pair.getFirst();
 		finalGrammar.becomeFull();
-		System.out.println(finalGrammar);
-		finalLexicon = pair.getSecond();
+		// System.out.println(finalGrammar);
+		finalLexicon = pair.getSecond().buildLexicon();
 	}
 
-	private Pair<Grammar, Lexicon> trainGrammar(Grammar grammar,
+	private Pair<Grammar, SimpleLexicon> trainGrammar(Grammar grammar,
 			SimpleLexicon lexicon) {
 		// 1.2 Split the initial training grammar by half all its probabilities
 		// build initial even grammar and lexicon
@@ -49,16 +53,16 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				spliter);
 
 		// 2. EM training
-		for (int emtrainingtimes = 0; emtrainingtimes < 8; emtrainingtimes++) {
+		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(grammar,
-					lexicon, spliter);
+					lexicon, spliter, originalGrammar);
 			// loop for all trees
 			helper.trainOnce(binaryTrees);
 			grammar = helper.getNewGrammar();
 			lexicon = helper.getNewLexicon();
 		}
-		return new Pair<Grammar, Lexicon>(grammar, lexicon.buildLexicon());
+		return new Pair<Grammar, SimpleLexicon>(grammar, lexicon);
 	}
 
 	static class GrammarTrainingHelper {
@@ -67,12 +71,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		GrammarSpliter spliter;
 		Grammar newGrammar;
 		SimpleLexicon newLexicon;
+		Grammar originalGrammar;
 
 		public GrammarTrainingHelper(Grammar grammar, SimpleLexicon lexicon,
-				GrammarSpliter spliter) {
+				GrammarSpliter spliter, Grammar originalGrammar) {
 			this.grammar = grammar;
 			this.lexicon = lexicon;
 			this.spliter = spliter;
+			this.originalGrammar = originalGrammar;
 		}
 
 		public Grammar getNewGrammar() {
@@ -102,9 +108,53 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			for (BinaryTree<String> binaryTree : binaryTrees) {
 				binaryTree.preOrdertraverse(posteriorCounter);
 			}
-			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
-					posteriorCounter.binaryRuleCounter, false);
+			buildNewGrammar(posteriorCounter);
 			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
+		}
+
+		private void buildNewGrammar(PosteriorProbabilityCounter postCounter) {
+			Counter<UnaryRule> baseUnaryCounter = new Counter<UnaryRule>();
+			Counter<BinaryRule> baseBinaryCounter = new Counter<BinaryRule>();
+			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
+				baseUnaryCounter.incrementCount(getBaseRule(unaryRule),
+						postCounter.unaryRuleCounter.getCount(unaryRule));
+			}
+			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
+				baseBinaryCounter.incrementCount(getBaseRule(binaryRule),
+						postCounter.binaryRuleCounter.getCount(binaryRule));
+			}
+			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
+				UnaryRule baseRule = getBaseRule(unaryRule);
+				postCounter.unaryRuleCounter.setCount(unaryRule,
+						postCounter.unaryRuleCounter.getCount(unaryRule)
+								/ baseUnaryCounter.getCount(baseRule)
+								* originalGrammar.selfUnaryMap.get(baseRule)
+										.getScore());
+
+			}
+			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
+				BinaryRule baseRule = getBaseRule(binaryRule);
+				postCounter.binaryRuleCounter.setCount(binaryRule,
+						postCounter.binaryRuleCounter.getCount(binaryRule)
+								/ baseBinaryCounter.getCount(baseRule)
+								* originalGrammar.selfBinaryMap.get(baseRule)
+										.getScore());
+			}
+			newGrammar = new Grammar(postCounter.unaryRuleCounter,
+					postCounter.binaryRuleCounter, false);
+		}
+
+		private BinaryRule getBaseRule(BinaryRule binaryRule) {
+			return new BinaryRule(GrammarSpliter.getBaseState(binaryRule
+					.getParent()), GrammarSpliter.getBaseState(binaryRule
+					.getLeftChild()), GrammarSpliter.getBaseState(binaryRule
+					.getRightChild()));
+		}
+
+		private UnaryRule getBaseRule(UnaryRule unaryRule) {
+			return new UnaryRule(GrammarSpliter.getBaseState(unaryRule
+					.getParent()), GrammarSpliter.getBaseState(unaryRule
+					.getChild()));
 		}
 
 		class InProbabilityComputer implements TraverseAction<String> {
@@ -201,13 +251,13 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		}
 
 		// TODO: compute smaller and smaller number
-		// static double factor = 1E60, lowThreshold = 1E-20;
+		static double factor = 1E4, lowThreshold = 1E-20;
 
 		class PosteriorProbabilityCounter implements TraverseAction<String> {
 			public Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
 			public Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
 			public CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
-			double binaryCount, unaryCount;
+
 			@Override
 			public void act(BinaryTree<String> tree) {
 				if (tree.isLeaf()) {
@@ -217,7 +267,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					String word = tree.left.getBaseLabel();
 					for (int i = 0; i < tree.lableSize(); i++) {
 						String tag = tree.getLabel(i);
-						double score = tree.getOut(i)
+						double score = tree.getOut(i) * factor
 								* lexicon.scoreTagging(word, tag);
 						wordToTagCounters.incrementCount(word, tag, score);
 					}
@@ -226,6 +276,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 						BinaryTree<String> child = tree.left;
 						for (int j = 0; j < child.lableSize(); j++) {
 							double score = tree.getOut(i)
+									* factor
 									* grammar.getUnaryScore(tree.getLabel(i),
 											child.getLabel(j)) * child.getIn(j);
 							unaryRuleCounter.incrementCount(
@@ -238,10 +289,12 @@ public class EMGrammarTrainer implements GrammarBuilder {
 						BinaryTree<String> left = tree.left, right = tree.right;
 						for (int j = 0; j < left.lableSize(); j++) {
 							for (int k = 0; k < right.lableSize(); k++) {
-								double score = tree.getOut(i);
-								score *= grammar.getBinaryScore(
-										tree.getLabel(i), left.getLabel(j),
-										right.getLabel(k));
+								double score = tree.getOut(i)
+										* factor
+										* grammar.getBinaryScore(
+												tree.getLabel(i),
+												left.getLabel(j),
+												right.getLabel(k));
 								score *= left.getIn(j) * right.getIn(k);
 								binaryRuleCounter.incrementCount(
 										tree.makeBinaryRule(i, j, k), score);
