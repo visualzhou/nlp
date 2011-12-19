@@ -1,6 +1,7 @@
 package nlp.parser;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +83,9 @@ public class GrammarSpliter {
 			baseState = state.substring(0, markIndex);
 		} else {
 			baseState = state;
+		}
+		if (state == "ROOT") {
+			return Collections.singletonList(state);
 		}
 		// split two new states and add to map
 		List<String> list = new ArrayList<String>(2);

@@ -20,12 +20,8 @@ public class CKYParser implements Parser {
 		System.out.print("Annotating / binarizing training trees ... ");
 		List<Tree<String>> annotatedTrainTrees = annotateTrees(trainTrees);
 		System.out.println("done.");
-
 		System.out.print("Building grammar ... ");
-		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(
-				annotatedTrainTrees, false);
-		grammar = grammarBuilder.buildGrammar();
-		grammar.becomeFull();
+		buildGrammar(annotatedTrainTrees);
 		System.out.println("done. ("
 				+ grammar.getStates().size()
 				+ " states, "
@@ -33,6 +29,16 @@ public class CKYParser implements Parser {
 						.size()) + " rules)");
 		uc = new UnaryClosure(grammar);
 		// System.out.println(uc);
+		buildLexicon(annotatedTrainTrees);
+	}
+
+	protected void buildGrammar(List<Tree<String>> annotatedTrainTrees) {
+		GrammarBuilder grammarBuilder = new Grammar.DefaultGrammarBuilder(
+				annotatedTrainTrees);
+		grammar = grammarBuilder.buildGrammar();
+	}
+
+	protected void buildLexicon(List<Tree<String>> annotatedTrainTrees) {
 		System.out.print("Setting up a CKY parser ... ");
 		lexicon = Lexicon.createLexicon(annotatedTrainTrees);
 		System.out.println("done.");

@@ -28,7 +28,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
 		Pair<Grammar, Lexicon> pair = trainGrammar(grammar, lexicon);
 		// only once
-		//finalGrammar = new Grammar()
+		finalGrammar = pair.getFirst();
+		finalGrammar.becomeFull();
+		System.out.println(finalGrammar);
+		finalLexicon = pair.getSecond();
 	}
 
 	private Pair<Grammar, Lexicon> trainGrammar(Grammar grammar,
@@ -46,7 +49,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				spliter);
 
 		// 2. EM training
-		for (int emtrainingtimes = 0; emtrainingtimes < 10; emtrainingtimes++) {
+		for (int emtrainingtimes = 0; emtrainingtimes < 8; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(grammar,
 					lexicon, spliter);
@@ -55,7 +58,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			grammar = helper.getNewGrammar();
 			lexicon = helper.getNewLexicon();
 		}
-		return new Pair<Grammar, Lexicon>(grammar, lexicon);
+		return new Pair<Grammar, Lexicon>(grammar, lexicon.buildLexicon());
 	}
 
 	static class GrammarTrainingHelper {
@@ -111,10 +114,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					return;
 				}
 				if (tree.isPreTerminal()) { // tag
+					String word = tree.left.getBaseLabel();
 					for (int i = 0; i < tree.lableSize(); i++) {
 						String tag = tree.getLabel(i);
-						tree.SetIn(i, lexicon.scoreTagging(
-								tree.left.getBaseLabel(), tag));
+						tree.SetIn(i, lexicon.scoreTagging(word, tag));
 					}
 					return;
 				}
@@ -197,11 +200,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			}
 		}
 
+		// TODO: compute smaller and smaller number
+		// static double factor = 1E60, lowThreshold = 1E-20;
+
 		class PosteriorProbabilityCounter implements TraverseAction<String> {
 			public Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
 			public Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
 			public CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
-
+			double binaryCount, unaryCount;
 			@Override
 			public void act(BinaryTree<String> tree) {
 				if (tree.isLeaf()) {

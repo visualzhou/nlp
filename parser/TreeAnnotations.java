@@ -70,12 +70,13 @@ public class TreeAnnotations {
 		return unAnnotatedTree;
 	}
 
-
 	static int horizontal = 0;
 	static boolean useparent = false;
+	final static String VIRTUALROOT = "root";
 
 	public static Tree<String> annotateTreeMarkov(Tree<String> unAnnotatedTree) {
-		Tree<String> annotatedTree = binarizeTreeMarkov(unAnnotatedTree, "root");
+		Tree<String> annotatedTree = binarizeTreeMarkov(unAnnotatedTree,
+				VIRTUALROOT);
 		// System.out.println(Trees.PennTreeRenderer.render(unAnnotatedTree));
 		// System.out.println(Trees.PennTreeRenderer.render(annotatedTree));
 		// System.out.println(Trees.PennTreeRenderer.render(unAnnotateTree(annotatedTree)));
@@ -90,9 +91,9 @@ public class TreeAnnotations {
 		if (tree.isLeaf()) {
 			return new Tree<String>(label);
 		}
-//		if (tree.isPreTerminal()) {
-//			currentLabel = label;
-//		}
+		// if (tree.isPreTerminal()) {
+		// currentLabel = label;
+		// }
 		if (tree.getChildren().size() == 1) {
 			return new Tree<String>(currentLabel,
 					Collections.singletonList(binarizeTreeMarkov(tree

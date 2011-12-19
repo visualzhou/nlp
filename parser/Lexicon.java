@@ -37,8 +37,13 @@ public class Lexicon {
 	}
 
 	public Lexicon(CounterMap<String, String> wordToTagCounters) {
+		this(wordToTagCounters, buildTagCounter(wordToTagCounters));
+	}
+
+	public Lexicon(CounterMap<String, String> wordToTagCounters,
+			Counter<String> tagCounter) {
 		this.wordToTagCounters = wordToTagCounters;
-		this.tagCounter = buildTagCounter(wordToTagCounters);
+		this.tagCounter = tagCounter;
 	}
 
 	public static Lexicon createLexicon(List<Tree<String>> trainTrees) {

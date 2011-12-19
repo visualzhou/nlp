@@ -1,6 +1,8 @@
 package nlp.parser;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import nlp.ling.Tree;
@@ -99,10 +101,10 @@ public class BinaryTree<L> {
 		}
 		if (!bTree.isLeaf()) {
 			bTree.labelVariance = spliter.getVariance(bTree.getBaseLabel());
-			bTree.inProbabilities = new ArrayList<Double>(
-					bTree.labelVariance.size());
-			bTree.inProbabilities = new ArrayList<Double>(
-					bTree.labelVariance.size());
+			bTree.inProbabilities = Arrays
+					.asList(new Double[bTree.lableSize()]);
+			bTree.outProbabilities = Arrays
+					.asList(new Double[bTree.lableSize()]);
 		}
 		return bTree;
 	}

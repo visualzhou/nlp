@@ -57,8 +57,9 @@ public class Grammar {
 	}
 
 	public double getBinaryScore(String parent, String left, String right) {
-		return binaryRulesMap.get(new BinaryRule(parent, left, right))
-				.getScore();
+		BinaryRule binaryRule = binaryRulesMap.get(new BinaryRule(parent, left,
+				right));
+		return binaryRule == null ? 0.0 : binaryRule.getScore();
 	}
 
 	public UnaryRule getUnaryRule(UnaryRule unaryRule) {
@@ -66,7 +67,8 @@ public class Grammar {
 	}
 
 	public double getUnaryScore(String parent, String child) {
-		return unaryRulesMap.get(new UnaryRule(parent, child)).getScore();
+		UnaryRule unaryRule = unaryRulesMap.get(new UnaryRule(parent, child));
+		return unaryRule == null ? 0.0 : unaryRule.getScore();
 	}
 
 	public Set<String> getStates() {

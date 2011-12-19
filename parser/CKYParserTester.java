@@ -4,16 +4,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 import nlp.ling.Tree;
+import nlp.parser.Grammar.GrammarBuilder;
 
-public class CKYParserTester extends CKYParser {
+public class CKYParserTester extends CKYParserMarkov {
 
 	public CKYParserTester(List<Tree<String>> trainTrees) {
 		super(trainTrees);
-		System.out.print("Annotating / binarizing training trees ... ");
-		List<Tree<String>> annotatedTrainTrees = annotateTrees(trainTrees);
-		System.out.println("done.");
-//		EMGrammarTrainer trainer = new EMGrammarTrainer();
-//		trainer.trainGrammar(annotatedTrainTrees, null, null);
+	}
+
+	@Override
+	protected void buildGrammar(List<Tree<String>> annotatedTrainTrees) {
+		EMGrammarTrainer trainer = new EMGrammarTrainer(annotatedTrainTrees);
+		trainer.train();
+		grammar = trainer.buildGrammar();
+		lexicon = trainer.getLexicon();
+	}
+
+	@Override
+	protected void buildLexicon(List<Tree<String>> annotatedTrainTrees) {
+		System.out.println("build lexicon ... done.");
 	}
 
 	@Override
@@ -29,11 +38,7 @@ public class CKYParserTester extends CKYParser {
 
 	@Override
 	protected String getRoot() {
-		if (TreeAnnotations.useparent) {
-			return "S^ROOT";
-		} else {
-			return "ROOT";
-		}
+		return "ROOT";
 	}
 
 }
