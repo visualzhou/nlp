@@ -10,6 +10,7 @@ import nlp.parser.BinaryTree.TraverseAction;
 import nlp.parser.Grammar.GrammarBuilder;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
+import nlp.util.Counters;
 import nlp.util.Pair;
 
 public class EMGrammarTrainer implements GrammarBuilder {
@@ -19,7 +20,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar baseGrammar;
 	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
-	final static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
+	final static long[] randomSeeds = new long[] { 3, 4, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -35,7 +36,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		baseLexicon = lexicon;
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
-		for (int smcycle = 0; smcycle < 1; smcycle++) {
+		for (int smcycle = 0; smcycle < 2; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
 			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
 			pair = trainGrammar(pair.getFirst(), pair.getSecond());
@@ -63,7 +64,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				spliter);
 
 		// 2. EM training
-		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
+		for (int emtrainingtimes = 0; emtrainingtimes < 10; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(
 					splitGrammar, splitlexicon, spliter, baseGrammar,
@@ -122,18 +123,32 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			for (BinaryTree<String> binaryTree : binaryTrees) {
 				binaryTree.preOrdertraverse(posteriorCounter);
 			}
-			buildNewGrammar(posteriorCounter);
-			// System.out.println("Before clean wordToTagCounters: "
-			// + posteriorCounter.wordToTagCounters.totalSize());
-			// posteriorCounter.wordToTagCounters = Counters
-			// .cleanCounter(posteriorCounter.wordToTagCounters);
-			// System.out.println("After clean wordToTagCounters: "
-			// + posteriorCounter.wordToTagCounters.totalSize());
+			normalizeGrammar(posteriorCounter);
+			posteriorCounter.binaryRuleCounter = Counters
+					.cleanCounter(posteriorCounter.binaryRuleCounter);
+			System.out.println("After clean binaryRuleCounter: "
+					+ posteriorCounter.binaryRuleCounter.size());
+			posteriorCounter.unaryRuleCounter = Counters
+					.cleanCounter(posteriorCounter.unaryRuleCounter);
+			System.out.println("After clean unaryRuleCounter: "
+					+ posteriorCounter.unaryRuleCounter.size());
+			normalizeGrammar(posteriorCounter);
+			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
+					posteriorCounter.binaryRuleCounter, false);
+
+			int beforelexiconsize = posteriorCounter.wordToTagCounters
+					.totalSize();
+			normalizeLexicon(posteriorCounter.wordToTagCounters);
+			posteriorCounter.wordToTagCounters = Counters
+					.cleanCounter(posteriorCounter.wordToTagCounters);
+			System.out.println("Before clean wordToTagCounters: "
+					+ beforelexiconsize + "  After: "
+					+ posteriorCounter.wordToTagCounters.totalSize());
 			normalizeLexicon(posteriorCounter.wordToTagCounters);
 			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
 		}
 
-		private void buildNewGrammar(PosteriorProbabilityCounter postCounter) {
+		private void normalizeGrammar(PosteriorProbabilityCounter postCounter) {
 			Counter<UnaryRule> originalUnaryCounter = new Counter<UnaryRule>();
 			Counter<BinaryRule> originalBinaryCounter = new Counter<BinaryRule>();
 			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
@@ -164,8 +179,6 @@ public class EMGrammarTrainer implements GrammarBuilder {
 								* unsplitGrammar.binaryRuleCounter
 										.getCount(originalRule));
 			}
-			newGrammar = new Grammar(postCounter.unaryRuleCounter,
-					postCounter.binaryRuleCounter, false);
 			// checkGrammarConsistency(newGrammar);
 		}
 
@@ -367,7 +380,6 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			}
 		}
 
-		// TODO: compute smaller and smaller number
 		static double factor = 1E4, lowThreshold = 1E-20;
 
 		class PosteriorProbabilityCounter implements TraverseAction<String> {
@@ -386,6 +398,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 						String tag = tree.getLabel(i);
 						double score = tree.getOut(i) * factor
 								* lexicon.scoreTagging(word, tag);
+						if (score == Double.NaN)
+							score = 0.0;
 						wordToTagCounters.incrementCount(word, tag, score);
 					}
 				} else if (tree.isUnary()) { // unary
@@ -396,6 +410,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 									* factor
 									* grammar.getUnaryScore(tree.getLabel(i),
 											child.getLabel(j)) * child.getIn(j);
+							if (score == Double.NaN)
+								score = 0.0;
 							unaryRuleCounter.incrementCount(
 									tree.makeUnaryRule(i, j), score);
 						}
@@ -413,6 +429,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 												left.getLabel(j),
 												right.getLabel(k));
 								score *= left.getIn(j) * right.getIn(k);
+								if (score == Double.NaN)
+									score = 0.0;
 								binaryRuleCounter.incrementCount(
 										tree.makeBinaryRule(i, j, k), score);
 							}
