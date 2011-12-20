@@ -10,7 +10,6 @@ import java.util.Set;
 import nlp.ling.Tree;
 import nlp.util.CollectionUtils;
 import nlp.util.Counter;
-import nlp.util.Counters;
 
 /**
  * Simple implementation of a PCFG grammar, offering the ability to look up

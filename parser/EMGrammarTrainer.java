@@ -10,7 +10,6 @@ import nlp.parser.BinaryTree.TraverseAction;
 import nlp.parser.Grammar.GrammarBuilder;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
-import nlp.util.Counters;
 import nlp.util.Pair;
 
 public class EMGrammarTrainer implements GrammarBuilder {
@@ -18,7 +17,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar finalGrammar;
 	Lexicon finalLexicon;
 	List<Tree<String>> trainTrees;
-	final static long[] randomSeeds = new long[] { 1, 1, 1, 1 };
+	final static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -32,7 +31,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
-		for (int smcycle = 0; smcycle < 2; smcycle++) {
+		for (int smcycle = 0; smcycle < 1; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
 			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
 			pair = trainGrammar(pair.getFirst(), pair.getSecond());
@@ -184,10 +183,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 							/ originalw2tCounters.getCount(word, originalTag)
 							* unsplitLexicon.wordToTagCounters.getCount(word,
 									originalTag);
-					originalw2tCounters.setCount(word, tag, score);
+					wordToTagCounters.setCount(word, tag, score);
 				}
 			}
-			// checkLexiconConsistency(wordToTagCounters);
+			checkLexiconConsistency(wordToTagCounters);
 		}
 
 		private void checkLexiconConsistency(
@@ -206,8 +205,12 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				Counter<String> vCounter = wordToTagCounters.getCounter(word);
 				for (String tag : vCounter.keySet()) {
 					String originalTag = GrammarSpliter.getOriginalState(tag);
-					match += originalw2tCounters.getCount(word, tag) == unsplitLexicon.wordToTagCounters
-							.getCount(word, tag) ? 1 : 0;
+					double newscore = originalw2tCounters.getCount(word,
+							originalTag);
+					double oldscore = unsplitLexicon.wordToTagCounters
+							.getCount(word, originalTag);
+					if (Math.abs(newscore - oldscore) < 1E-6)
+						match++;
 					all++;
 				}
 			}
