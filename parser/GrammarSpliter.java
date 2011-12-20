@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import com.sun.corba.se.spi.ior.MakeImmutable;
+
 import nlp.util.CollectionUtils;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
@@ -91,10 +93,10 @@ public class GrammarSpliter {
 		// split two new states and add to map
 		List<String> list = new ArrayList<String>(2);
 		String newState = String.format("%s%c%d", baseState, LableMark,
-				oldLabel * 2);
+				oldLabel * 2 + 1);
 		list.add(newState);
 		newState = String.format("%s%c%d", baseState, LableMark,
-				oldLabel * 2 + 1);
+				oldLabel * 2 + 2);
 		list.add(newState);
 		return list;
 	}
@@ -143,6 +145,16 @@ public class GrammarSpliter {
 			}
 		}
 		newGrammar = new Grammar(unaryRuleCounter, binaryRuleCounter, false);
+	}
+
+	public static String getOriginalState(String state) {
+		int markIndex = state.indexOf(LableMark);
+		if (markIndex < 0)
+			return state;
+		int index = Integer.parseInt(state.substring(markIndex + 1));
+		index = (index - 1) / 2;
+		return index == 0 ? state.substring(0, markIndex) : String.format(
+				"%s%c%d", state.substring(0, markIndex), LableMark, index);
 	}
 
 	static Random random = new Random(1);

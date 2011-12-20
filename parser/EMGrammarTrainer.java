@@ -3,12 +3,14 @@ package nlp.parser;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import nlp.ling.Tree;
 import nlp.parser.BinaryTree.TraverseAction;
 import nlp.parser.Grammar.GrammarBuilder;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
+import nlp.util.Counters;
 import nlp.util.Pair;
 
 public class EMGrammarTrainer implements GrammarBuilder {
@@ -16,7 +18,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar finalGrammar;
 	Lexicon finalLexicon;
 	List<Tree<String>> trainTrees;
-	Grammar originalGrammar;
+	final static long[] randomSeeds = new long[] { 1, 1, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -27,10 +29,15 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		GrammarBuilder gb = new Grammar.DefaultGrammarBuilder(trainTrees, false);
 		Grammar grammar = gb.buildGrammar();
 		grammar.becomeFull();
-		originalGrammar = grammar;
 		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
-		Pair<Grammar, SimpleLexicon> pair = trainGrammar(grammar, lexicon);
-		// pair = trainGrammar(pair.getFirst(), pair.getSecond());
+		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
+				grammar, lexicon);
+		for (int smcycle = 0; smcycle < 2; smcycle++) {
+			System.out.println("SM cycle " + smcycle);
+			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
+			pair = trainGrammar(pair.getFirst(), pair.getSecond());
+			System.out.println("SM cycle " + smcycle + " done.\n");
+		}
 		// only once
 		finalGrammar = pair.getFirst();
 		finalGrammar.becomeFull();
@@ -44,8 +51,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		// build initial even grammar and lexicon
 		// System.out.println(grammar.toString());
 		GrammarSpliter spliter = new GrammarSpliter(grammar, lexicon);
-		grammar = spliter.getNewGrammar();
-		lexicon = spliter.getNewLexicon();
+		Grammar splitGrammar = spliter.getNewGrammar();
+		SimpleLexicon splitlexicon = spliter.getNewLexicon();
 		// System.out.println(lexicon.toString());
 
 		// 1.3 Build binary tree
@@ -55,14 +62,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		// 2. EM training
 		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
-			GrammarTrainingHelper helper = new GrammarTrainingHelper(grammar,
-					lexicon, spliter, originalGrammar);
+			GrammarTrainingHelper helper = new GrammarTrainingHelper(
+					splitGrammar, splitlexicon, spliter, grammar, lexicon);
 			// loop for all trees
 			helper.trainOnce(binaryTrees);
-			grammar = helper.getNewGrammar();
-			lexicon = helper.getNewLexicon();
+			splitGrammar = helper.getNewGrammar();
+			splitlexicon = helper.getNewLexicon();
 		}
-		return new Pair<Grammar, SimpleLexicon>(grammar, lexicon);
+		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
 	}
 
 	static class GrammarTrainingHelper {
@@ -71,14 +78,17 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		GrammarSpliter spliter;
 		Grammar newGrammar;
 		SimpleLexicon newLexicon;
-		Grammar originalGrammar;
+		Grammar unsplitGrammar;
+		SimpleLexicon unsplitLexicon;
 
 		public GrammarTrainingHelper(Grammar grammar, SimpleLexicon lexicon,
-				GrammarSpliter spliter, Grammar originalGrammar) {
+				GrammarSpliter spliter, Grammar originalGrammar,
+				SimpleLexicon unsplitLexicon) {
 			this.grammar = grammar;
 			this.lexicon = lexicon;
 			this.spliter = spliter;
-			this.originalGrammar = originalGrammar;
+			this.unsplitGrammar = originalGrammar;
+			this.unsplitLexicon = unsplitLexicon;
 		}
 
 		public Grammar getNewGrammar() {
@@ -109,51 +119,150 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				binaryTree.preOrdertraverse(posteriorCounter);
 			}
 			buildNewGrammar(posteriorCounter);
+			// System.out.println("Before clean wordToTagCounters: "
+			// + posteriorCounter.wordToTagCounters.totalSize());
+			// posteriorCounter.wordToTagCounters = Counters
+			// .cleanCounter(posteriorCounter.wordToTagCounters);
+			// System.out.println("After clean wordToTagCounters: "
+			// + posteriorCounter.wordToTagCounters.totalSize());
+			normalizeLexicon(posteriorCounter.wordToTagCounters);
 			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
 		}
 
 		private void buildNewGrammar(PosteriorProbabilityCounter postCounter) {
-			Counter<UnaryRule> baseUnaryCounter = new Counter<UnaryRule>();
-			Counter<BinaryRule> baseBinaryCounter = new Counter<BinaryRule>();
+			Counter<UnaryRule> originalUnaryCounter = new Counter<UnaryRule>();
+			Counter<BinaryRule> originalBinaryCounter = new Counter<BinaryRule>();
 			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
-				baseUnaryCounter.incrementCount(getBaseRule(unaryRule),
+				originalUnaryCounter.incrementCount(getOriginalRule(unaryRule),
 						postCounter.unaryRuleCounter.getCount(unaryRule));
 			}
 			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
-				baseBinaryCounter.incrementCount(getBaseRule(binaryRule),
+				originalBinaryCounter.incrementCount(
+						getOriginalRule(binaryRule),
 						postCounter.binaryRuleCounter.getCount(binaryRule));
 			}
 			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
-				UnaryRule baseRule = getBaseRule(unaryRule);
-				postCounter.unaryRuleCounter.setCount(unaryRule,
+				UnaryRule original = getOriginalRule(unaryRule);
+				postCounter.unaryRuleCounter.setCount(
+						unaryRule,
 						postCounter.unaryRuleCounter.getCount(unaryRule)
-								/ baseUnaryCounter.getCount(baseRule)
-								* originalGrammar.selfUnaryMap.get(baseRule)
-										.getScore());
+								/ originalUnaryCounter.getCount(original)
+								* unsplitGrammar.unaryRuleCounter
+										.getCount(original));
 
 			}
 			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
-				BinaryRule baseRule = getBaseRule(binaryRule);
-				postCounter.binaryRuleCounter.setCount(binaryRule,
+				BinaryRule originalRule = getOriginalRule(binaryRule);
+				postCounter.binaryRuleCounter.setCount(
+						binaryRule,
 						postCounter.binaryRuleCounter.getCount(binaryRule)
-								/ baseBinaryCounter.getCount(baseRule)
-								* originalGrammar.selfBinaryMap.get(baseRule)
-										.getScore());
+								/ originalBinaryCounter.getCount(originalRule)
+								* unsplitGrammar.binaryRuleCounter
+										.getCount(originalRule));
 			}
 			newGrammar = new Grammar(postCounter.unaryRuleCounter,
 					postCounter.binaryRuleCounter, false);
+			// checkGrammarConsistency(newGrammar);
 		}
 
-		private BinaryRule getBaseRule(BinaryRule binaryRule) {
-			return new BinaryRule(GrammarSpliter.getBaseState(binaryRule
-					.getParent()), GrammarSpliter.getBaseState(binaryRule
-					.getLeftChild()), GrammarSpliter.getBaseState(binaryRule
-					.getRightChild()));
+		private void normalizeLexicon(
+				CounterMap<String, String> wordToTagCounters) {
+			CounterMap<String, String> originalw2tCounters = new CounterMap<String, String>();
+			for (String word : wordToTagCounters.keySet()) {
+				Counter<String> vCounter = wordToTagCounters.getCounter(word);
+				for (String tag : vCounter.keySet()) {
+					originalw2tCounters.incrementCount(word,
+							GrammarSpliter.getOriginalState(tag),
+							vCounter.getCount(tag));
+				}
+			}
+			for (String word : wordToTagCounters.keySet()) {
+				Counter<String> vCounter = wordToTagCounters.getCounter(word);
+				for (String tag : vCounter.keySet()) {
+					String originalTag = GrammarSpliter.getOriginalState(tag);
+					double score = vCounter.getCount(tag)
+							/ originalw2tCounters.getCount(word, originalTag)
+							* unsplitLexicon.wordToTagCounters.getCount(word,
+									originalTag);
+					originalw2tCounters.setCount(word, tag, score);
+				}
+			}
+			// checkLexiconConsistency(wordToTagCounters);
 		}
 
-		private UnaryRule getBaseRule(UnaryRule unaryRule) {
-			return new UnaryRule(GrammarSpliter.getBaseState(unaryRule
-					.getParent()), GrammarSpliter.getBaseState(unaryRule
+		private void checkLexiconConsistency(
+				CounterMap<String, String> wordToTagCounters) {
+			CounterMap<String, String> originalw2tCounters = new CounterMap<String, String>();
+			for (String word : wordToTagCounters.keySet()) {
+				Counter<String> vCounter = wordToTagCounters.getCounter(word);
+				for (String tag : vCounter.keySet()) {
+					originalw2tCounters.incrementCount(word,
+							GrammarSpliter.getOriginalState(tag),
+							vCounter.getCount(tag));
+				}
+			}
+			int match = 0, all = 0;
+			for (String word : wordToTagCounters.keySet()) {
+				Counter<String> vCounter = wordToTagCounters.getCounter(word);
+				for (String tag : vCounter.keySet()) {
+					String originalTag = GrammarSpliter.getOriginalState(tag);
+					match += originalw2tCounters.getCount(word, tag) == unsplitLexicon.wordToTagCounters
+							.getCount(word, tag) ? 1 : 0;
+					all++;
+				}
+			}
+			System.out.println("New old lexcion match " + 1.0 * match / all);
+		}
+
+		private void checkGrammarConsistency(Grammar newGrammar) {
+			Counter<UnaryRule> originalUnaryCounter = new Counter<UnaryRule>();
+			Counter<BinaryRule> originalBinaryCounter = new Counter<BinaryRule>();
+			for (UnaryRule unaryRule : newGrammar.getUnaryRules()) {
+				originalUnaryCounter.incrementCount(getOriginalRule(unaryRule),
+						newGrammar.unaryRuleCounter.getCount(unaryRule));
+			}
+			for (BinaryRule binaryRule : newGrammar.getBinaryRules()) {
+				originalBinaryCounter.incrementCount(
+						getOriginalRule(binaryRule),
+						newGrammar.binaryRuleCounter.getCount(binaryRule));
+			}
+			int matchCount = 0, all = 0;
+			for (UnaryRule unaryRule : unsplitGrammar.getUnaryRules()) {
+				double oldscore = unsplitGrammar.unaryRuleCounter
+						.getCount(unaryRule);
+				double newscore = originalUnaryCounter.getCount(unaryRule);
+				if (Math.abs(oldscore - newscore) < 1E-6) {
+					matchCount++;
+				} else {
+					all = all + 1 - 1;
+				}
+				all++;
+			}
+			for (BinaryRule binaryRule : unsplitGrammar.getBinaryRules()) {
+				double oldscore = unsplitGrammar.binaryRuleCounter
+						.getCount(binaryRule);
+				double newscore = originalBinaryCounter.getCount(binaryRule);
+				if (Math.abs(oldscore - newscore) < 1E-6) {
+					matchCount++;
+				} else {
+					all = all + 1 - 1;
+				}
+				all++;
+			}
+			System.out.println("New old grammar match " + 1.0 * matchCount
+					/ all);
+		}
+
+		private BinaryRule getOriginalRule(BinaryRule binaryRule) {
+			return new BinaryRule(GrammarSpliter.getOriginalState(binaryRule
+					.getParent()), GrammarSpliter.getOriginalState(binaryRule
+					.getLeftChild()),
+					GrammarSpliter.getOriginalState(binaryRule.getRightChild()));
+		}
+
+		private UnaryRule getOriginalRule(UnaryRule unaryRule) {
+			return new UnaryRule(GrammarSpliter.getOriginalState(unaryRule
+					.getParent()), GrammarSpliter.getOriginalState(unaryRule
 					.getChild()));
 		}
 

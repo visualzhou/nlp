@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
 
-import nlp.math.SloppyMath;
-
 public class Counters {
 	public static <E> Counter<E> normalize(Counter<E> counter) {
 		Counter<E> normalizedCounter = new Counter<E>();

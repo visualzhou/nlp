@@ -32,6 +32,11 @@ public class Grammar {
 	Map<UnaryRule, Double> unaryRulesMap = new HashMap<UnaryRule, Double>();
 	Map<BinaryRule, BinaryRule> selfBinaryMap = new HashMap<BinaryRule, BinaryRule>();
 	Map<UnaryRule, UnaryRule> selfUnaryMap = new HashMap<UnaryRule, UnaryRule>();
+
+	// original Counter
+	Counter<UnaryRule> unaryRuleCounter = new Counter<UnaryRule>();
+	Counter<BinaryRule> binaryRuleCounter = new Counter<BinaryRule>();
+
 	// states for statistic
 	Set<String> states = new HashSet<String>();
 
@@ -96,6 +101,7 @@ public class Grammar {
 		if (full) {
 			addBinaryLookup(binaryRule);
 		}
+		// selfBinaryMap.put(binaryRule, binaryRule);
 	}
 
 	private void addBinaryLookup(BinaryRule binaryRule) {
@@ -103,7 +109,6 @@ public class Grammar {
 				binaryRule.getParent(), binaryRule);
 		CollectionUtils.addToValueList(binaryRulesByLeftChild,
 				binaryRule.getLeftChild(), binaryRule);
-		selfBinaryMap.put(binaryRule, binaryRule);
 	}
 
 	private void addUnary(UnaryRule unaryRule) {
@@ -113,12 +118,12 @@ public class Grammar {
 		if (full) {
 			addUnaryLookup(unaryRule);
 		}
+		// selfUnaryMap.put(unaryRule, unaryRule);
 	}
 
 	private void addUnaryLookup(UnaryRule unaryRule) {
 		CollectionUtils.addToValueList(unaryRulesByParent,
 				unaryRule.getParent(), unaryRule);
-		selfUnaryMap.put(unaryRule, unaryRule);
 	}
 
 	protected Grammar() {
@@ -141,8 +146,10 @@ public class Grammar {
 	public Grammar(Counter<UnaryRule> unaryRuleCounter,
 			Counter<BinaryRule> binaryRuleCounter, boolean isFull) {
 		full = isFull;
-//		unaryRuleCounter = Counters.cleanCounter(unaryRuleCounter);
-//		binaryRuleCounter = Counters.cleanCounter(binaryRuleCounter);
+		this.binaryRuleCounter = binaryRuleCounter;
+		this.unaryRuleCounter = unaryRuleCounter;
+		// unaryRuleCounter = Counters.cleanCounter(unaryRuleCounter);
+		// binaryRuleCounter = Counters.cleanCounter(binaryRuleCounter);
 		// construct symbolCounter
 		Counter<String> symbolCounter = new Counter<String>();
 		for (UnaryRule unaryRule : unaryRuleCounter.keySet()) {
