@@ -16,6 +16,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 
 	Grammar finalGrammar;
 	Lexicon finalLexicon;
+	Grammar baseGrammar;
+	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
 	final static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
 
@@ -28,7 +30,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		GrammarBuilder gb = new Grammar.DefaultGrammarBuilder(trainTrees, false);
 		Grammar grammar = gb.buildGrammar();
 		grammar.becomeFull();
+		baseGrammar = grammar;
 		SimpleLexicon lexicon = SimpleLexicon.createSimpleLexicon(trainTrees);
+		baseLexicon = lexicon;
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
 		for (int smcycle = 0; smcycle < 1; smcycle++) {
@@ -62,7 +66,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(
-					splitGrammar, splitlexicon, spliter, grammar, lexicon);
+					splitGrammar, splitlexicon, spliter, baseGrammar,
+					baseLexicon);
 			// loop for all trees
 			helper.trainOnce(binaryTrees);
 			splitGrammar = helper.getNewGrammar();
@@ -171,14 +176,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				Counter<String> vCounter = wordToTagCounters.getCounter(word);
 				for (String tag : vCounter.keySet()) {
 					originalw2tCounters.incrementCount(word,
-							GrammarSpliter.getOriginalState(tag),
+							GrammarSpliter.getBaseState(tag),
 							vCounter.getCount(tag));
 				}
 			}
 			for (String word : wordToTagCounters.keySet()) {
 				Counter<String> vCounter = wordToTagCounters.getCounter(word);
 				for (String tag : vCounter.keySet()) {
-					String originalTag = GrammarSpliter.getOriginalState(tag);
+					String originalTag = GrammarSpliter.getBaseState(tag);
 					double score = vCounter.getCount(tag)
 							/ originalw2tCounters.getCount(word, originalTag)
 							* unsplitLexicon.wordToTagCounters.getCount(word,
@@ -186,7 +191,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					wordToTagCounters.setCount(word, tag, score);
 				}
 			}
-			checkLexiconConsistency(wordToTagCounters);
+			// checkLexiconConsistency(wordToTagCounters);
 		}
 
 		private void checkLexiconConsistency(
@@ -196,7 +201,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				Counter<String> vCounter = wordToTagCounters.getCounter(word);
 				for (String tag : vCounter.keySet()) {
 					originalw2tCounters.incrementCount(word,
-							GrammarSpliter.getOriginalState(tag),
+							GrammarSpliter.getBaseState(tag),
 							vCounter.getCount(tag));
 				}
 			}
@@ -204,7 +209,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			for (String word : wordToTagCounters.keySet()) {
 				Counter<String> vCounter = wordToTagCounters.getCounter(word);
 				for (String tag : vCounter.keySet()) {
-					String originalTag = GrammarSpliter.getOriginalState(tag);
+					String originalTag = GrammarSpliter.getBaseState(tag);
 					double newscore = originalw2tCounters.getCount(word,
 							originalTag);
 					double oldscore = unsplitLexicon.wordToTagCounters
@@ -257,15 +262,15 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		}
 
 		private BinaryRule getOriginalRule(BinaryRule binaryRule) {
-			return new BinaryRule(GrammarSpliter.getOriginalState(binaryRule
-					.getParent()), GrammarSpliter.getOriginalState(binaryRule
-					.getLeftChild()),
-					GrammarSpliter.getOriginalState(binaryRule.getRightChild()));
+			return new BinaryRule(GrammarSpliter.getBaseState(binaryRule
+					.getParent()), GrammarSpliter.getBaseState(binaryRule
+					.getLeftChild()), GrammarSpliter.getBaseState(binaryRule
+					.getRightChild()));
 		}
 
 		private UnaryRule getOriginalRule(UnaryRule unaryRule) {
-			return new UnaryRule(GrammarSpliter.getOriginalState(unaryRule
-					.getParent()), GrammarSpliter.getOriginalState(unaryRule
+			return new UnaryRule(GrammarSpliter.getBaseState(unaryRule
+					.getParent()), GrammarSpliter.getBaseState(unaryRule
 					.getChild()));
 		}
 
