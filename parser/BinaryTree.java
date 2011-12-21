@@ -1,8 +1,6 @@
 package nlp.parser;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import nlp.ling.Tree;

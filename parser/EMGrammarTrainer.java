@@ -2,8 +2,14 @@ package nlp.parser;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
 
 import nlp.ling.Tree;
 import nlp.parser.BinaryTree.TraverseAction;
@@ -64,7 +70,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				spliter);
 
 		// 2. EM training
-		for (int emtrainingtimes = 0; emtrainingtimes < 10; emtrainingtimes++) {
+		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(
 					splitGrammar, splitlexicon, spliter, baseGrammar,
@@ -74,7 +80,198 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			splitGrammar = helper.getNewGrammar();
 			splitlexicon = helper.getNewLexicon();
 		}
+
+		// 3. Merge
+		// 3.1 measure merge loss
+		RelativeProbabilityComputer relativeProbabilityComputer = new RelativeProbabilityComputer();
+		for (BinaryTree<String> binaryTree : binaryTrees) {
+			binaryTree.preOrdertraverse(relativeProbabilityComputer);
+		}
+		MergeLossMeasurer mergeLossMeasurer = new MergeLossMeasurer(
+				relativeProbabilityComputer.getObservationCounter());
+		for (BinaryTree<String> binaryTree : binaryTrees) {
+			binaryTree.preOrdertraverse(mergeLossMeasurer);
+		}
+		Set<String> mergeSet = mergeLossMeasurer.getMergeSet();
+		splitGrammar = mergeGrammar(splitGrammar, mergeSet);
+		splitlexicon = mergeLexicon(splitlexicon, mergeSet);
 		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
+	}
+
+	private SimpleLexicon mergeLexicon(SimpleLexicon oldLexicon,
+			Set<String> mergeSet) {
+		CounterMap<String, String> wordToTagCounters = new CounterMap<String, String>();
+		for (String word : oldLexicon.wordToTagCounters.keySet()) {
+			Counter<String> vCounter = oldLexicon.wordToTagCounters
+					.getCounter(word);
+			for (String tag : vCounter.keySet()) {
+				String original = GrammarSpliter.getOriginalState(tag);
+				if (mergeSet.contains(original)) {
+					wordToTagCounters.incrementCount(word, original,
+							vCounter.getCount(tag));
+				} else {
+					wordToTagCounters.incrementCount(word, tag,
+							vCounter.getCount(tag));
+				}
+			}
+		}
+		return new SimpleLexicon(wordToTagCounters);
+	}
+
+	private Grammar mergeGrammar(Grammar oldGrammar, Set<String> mergeSet) {
+		Counter<UnaryRule> unaryCounter = new Counter<UnaryRule>();
+		Counter<BinaryRule> binaryCounter = new Counter<BinaryRule>();
+		for (UnaryRule unaryRule : oldGrammar.unaryRuleCounter.keySet()) {
+			UnaryRule newRule = getOriginalRule(unaryRule, mergeSet);
+			unaryCounter.incrementCount(newRule,
+					oldGrammar.unaryRuleCounter.getCount(unaryRule));
+		}
+		for (BinaryRule binaryRule : oldGrammar.binaryRuleCounter.keySet()) {
+			BinaryRule newRule = getOriginalRule(binaryRule, mergeSet);
+			binaryCounter.incrementCount(newRule,
+					oldGrammar.binaryRuleCounter.getCount(binaryRule));
+		}
+		return new Grammar(unaryCounter, binaryCounter, false);
+	}
+
+	private static UnaryRule getOriginalRule(UnaryRule unaryRule,
+			Set<String> mergeSet) {
+		String oParent = GrammarSpliter.getOriginalState(unaryRule.getParent());
+		String oChild = GrammarSpliter.getOriginalState(unaryRule.getChild());
+		String p, c;
+		p = mergeSet.contains(oParent) ? oParent : unaryRule.getParent();
+		c = mergeSet.contains(oChild) ? oChild : unaryRule.getChild();
+		return new UnaryRule(p, c);
+	}
+
+	static BinaryRule getOriginalRule(BinaryRule binaryRule,
+			Set<String> mergeSet) {
+		String oParent = GrammarSpliter
+				.getOriginalState(binaryRule.getParent());
+		String oleft = GrammarSpliter.getOriginalState(binaryRule
+				.getLeftChild());
+		String oright = GrammarSpliter.getOriginalState(binaryRule
+				.getRightChild());
+		String p, l, r;
+		p = mergeSet.contains(oParent) ? oParent : binaryRule.getParent();
+		l = mergeSet.contains(oleft) ? oleft : binaryRule.getLeftChild();
+		r = mergeSet.contains(oright) ? oright : binaryRule.getRightChild();
+		return new BinaryRule(p, l, r);
+	}
+
+	static class RelativeProbabilityComputer implements TraverseAction<String> {
+		private Counter<String> observationCounter = new Counter<String>();
+
+		@Override
+		public void act(BinaryTree<String> tree) {
+			if (tree.isLeaf()) {
+				return;
+			}
+			for (int i = 0; i < tree.lableSize(); i++) {
+				double observation = tree.getIn(i) * tree.getOut(i);
+				observationCounter
+						.incrementCount(tree.getLabel(i), observation);
+			}
+		}
+
+		public Counter<String> getObservationCounter() {
+			return observationCounter;
+		}
+
+		public void setObservationCounter(Counter<String> observationCounter) {
+			this.observationCounter = observationCounter;
+		}
+	}
+
+	static class MergeLossMeasurer implements TraverseAction<String> {
+		Counter<String> observationCounter;
+		private Map<String, Double> lossMap = new HashMap<String, Double>();
+
+		public MergeLossMeasurer(Counter<String> observationCounter) {
+			this.observationCounter = observationCounter;
+		}
+
+		@Override
+		public void act(BinaryTree<String> tree) {
+			if (tree.isLeaf()) {
+				return;
+			}
+			if (tree.getBaseLabel().equals("ROOT")) {
+				return;
+			}
+			double sum = 0;
+			for (int i = 0; i < tree.lableSize(); i++) {
+				double observation = tree.getIn(i) * tree.getOut(i);
+				sum += observation;
+			}
+			boolean[] mark = new boolean[tree.lableSize()];
+			for (int i = 0; i < tree.lableSize(); i++) {
+				if (mark[i]) {
+					continue;
+				}
+				String lable1 = tree.getLabel(i), label2 = GrammarSpliter
+						.getOtherLabel(lable1);
+				// find label2
+				int j = -1;
+				for (int k = i + 1; k < tree.lableSize(); k++) {
+					if (tree.getLabel(k).equals(label2)) {
+						j = k;
+						break;
+					}
+				}
+				assert j >= 0;
+				double newsum = sum, unsplitIn, unsplitOut, c1, c2;
+				c1 = observationCounter.getCount(tree.getLabel(i));
+				c2 = observationCounter.getCount(tree.getLabel(j));
+				unsplitIn = (c1 * tree.getIn(i) + c2 * tree.getIn(j))
+						/ (c1 + c2);
+				unsplitOut = tree.getOut(i) + tree.getOut(j);
+				newsum -= tree.getIn(i) * tree.getOut(i);
+				newsum -= tree.getIn(j) * tree.getOut(j);
+				newsum += unsplitIn * unsplitOut;
+				String originalLabel = GrammarSpliter.getOriginalState(lable1);
+				Double d = lossMap.get(originalLabel);
+				if (newsum / sum > 2.0) {
+					int p = 1;
+					p = 2;
+				}
+				if (d == null) {
+					lossMap.put(originalLabel, newsum / sum);
+				} else {
+					lossMap.put(originalLabel, d * (newsum / sum));
+				}
+				// newsum / sum < 1
+				mark[j] = true;
+			}
+		}
+
+		public Map<String, Double> getLossMap() {
+			return lossMap;
+		}
+
+		public Set<String> getMergeSet() {
+			List<Entry<String, Double>> entryList = new ArrayList<Map.Entry<String, Double>>(
+					lossMap.entrySet());
+			Collections.sort(entryList,
+					new Comparator<Entry<String, Double>>() {
+						@Override
+						public int compare(Entry<String, Double> o1,
+								Entry<String, Double> o2) {
+							if (o1.getValue() > o2.getValue()) {
+								return -1;
+							} else if (o1.getValue() < o2.getValue()) {
+								return 1;
+							} else
+								return 0;
+						}
+					});
+			int size = entryList.size() / 2;
+			Set<String> mergeSet = new HashSet<String>(size * 2);
+			for (int i = 0; i < size; i++) {
+				mergeSet.add(entryList.get(i).getKey());
+			}
+			return mergeSet;
+		}
 	}
 
 	static class GrammarTrainingHelper {
@@ -136,14 +333,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
 					posteriorCounter.binaryRuleCounter, false);
 
-			int beforelexiconsize = posteriorCounter.wordToTagCounters
-					.totalSize();
-			normalizeLexicon(posteriorCounter.wordToTagCounters);
-			posteriorCounter.wordToTagCounters = Counters
-					.cleanCounter(posteriorCounter.wordToTagCounters);
-			System.out.println("Before clean wordToTagCounters: "
-					+ beforelexiconsize + "  After: "
-					+ posteriorCounter.wordToTagCounters.totalSize());
+			 int beforelexiconsize = posteriorCounter.wordToTagCounters
+			 .totalSize();
+			 normalizeLexicon(posteriorCounter.wordToTagCounters);
+			 posteriorCounter.wordToTagCounters = Counters
+			 .cleanCounter(posteriorCounter.wordToTagCounters);
+			 System.out.println("Before clean wordToTagCounters: "
+			 + beforelexiconsize + "  After: "
+			 + posteriorCounter.wordToTagCounters.totalSize());
 			normalizeLexicon(posteriorCounter.wordToTagCounters);
 			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
 		}

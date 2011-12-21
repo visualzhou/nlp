@@ -155,6 +155,18 @@ public class GrammarSpliter {
 				"%s%c%d", state.substring(0, markIndex), LableMark, index);
 	}
 
+	public static String getOtherLabel(String state) {
+		int markIndex = state.indexOf(LableMark);
+		int index = Integer.parseInt(state.substring(markIndex + 1));
+		if ((index & 1) == 0) {
+			index--;
+		} else {
+			index++;
+		}
+		return index == 0 ? state.substring(0, markIndex) : String.format(
+				"%s%c%d", state.substring(0, markIndex), LableMark, index);
+	}
+
 	static Random random = new Random(1);
 
 	private double getRandom() {

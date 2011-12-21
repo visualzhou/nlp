@@ -2,12 +2,9 @@ package nlp.parser;
 
 import java.util.List;
 
-import com.sun.org.apache.bcel.internal.generic.NEW;
-
 import nlp.ling.Tree;
 import nlp.util.Counter;
 import nlp.util.CounterMap;
-import nlp.util.Counters;
 
 public class SimpleLexicon extends Lexicon {
 	CounterMap<String, String> wordToTagRelativeCounters = new CounterMap<String, String>();
