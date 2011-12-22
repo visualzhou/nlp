@@ -26,7 +26,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar baseGrammar;
 	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
-	final static long[] randomSeeds = new long[] { 3, 4, 1, 1 };
+	final static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
+	final static int[] EMTrainingTimes = new int[] { 0, 12, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -45,7 +46,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		for (int smcycle = 0; smcycle < 2; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
 			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
-			pair = trainGrammar(pair.getFirst(), pair.getSecond());
+			pair = trainGrammar(smcycle, pair.getFirst(), pair.getSecond());
 			System.out.println("SM cycle " + smcycle + " done.\n");
 		}
 		// only once
@@ -55,8 +56,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		finalLexicon = pair.getSecond().buildLexicon();
 	}
 
-	private Pair<Grammar, SimpleLexicon> trainGrammar(Grammar grammar,
-			SimpleLexicon lexicon) {
+	private Pair<Grammar, SimpleLexicon> trainGrammar(int cycle,
+			Grammar grammar, SimpleLexicon lexicon) {
 		// 1.2 Split the initial training grammar by half all its probabilities
 		// build initial even grammar and lexicon
 		// System.out.println(grammar.toString());
@@ -70,7 +71,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				spliter);
 
 		// 2. EM training
-		for (int emtrainingtimes = 0; emtrainingtimes < 12; emtrainingtimes++) {
+		for (int emtrainingtimes = 0; emtrainingtimes < EMTrainingTimes[cycle]; emtrainingtimes++) {
 			System.out.println("EM iteration: " + emtrainingtimes);
 			GrammarTrainingHelper helper = new GrammarTrainingHelper(
 					splitGrammar, splitlexicon, spliter, baseGrammar,
@@ -81,20 +82,22 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			splitlexicon = helper.getNewLexicon();
 		}
 
-		// 3. Merge
-		// 3.1 measure merge loss
-		RelativeProbabilityComputer relativeProbabilityComputer = new RelativeProbabilityComputer();
-		for (BinaryTree<String> binaryTree : binaryTrees) {
-			binaryTree.preOrdertraverse(relativeProbabilityComputer);
+		if (EMTrainingTimes[cycle] > 0) {
+			// 3. Merge
+			// 3.1 measure merge loss
+			RelativeProbabilityComputer relativeProbabilityComputer = new RelativeProbabilityComputer();
+			for (BinaryTree<String> binaryTree : binaryTrees) {
+				binaryTree.preOrdertraverse(relativeProbabilityComputer);
+			}
+			MergeLossMeasurer mergeLossMeasurer = new MergeLossMeasurer(
+					relativeProbabilityComputer.getObservationCounter());
+			for (BinaryTree<String> binaryTree : binaryTrees) {
+				binaryTree.preOrdertraverse(mergeLossMeasurer);
+			}
+			Set<String> mergeSet = mergeLossMeasurer.getMergeSet();
+			splitGrammar = mergeGrammar(splitGrammar, mergeSet);
+			splitlexicon = mergeLexicon(splitlexicon, mergeSet);
 		}
-		MergeLossMeasurer mergeLossMeasurer = new MergeLossMeasurer(
-				relativeProbabilityComputer.getObservationCounter());
-		for (BinaryTree<String> binaryTree : binaryTrees) {
-			binaryTree.preOrdertraverse(mergeLossMeasurer);
-		}
-		Set<String> mergeSet = mergeLossMeasurer.getMergeSet();
-		splitGrammar = mergeGrammar(splitGrammar, mergeSet);
-		splitlexicon = mergeLexicon(splitlexicon, mergeSet);
 		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
 	}
 
@@ -333,14 +336,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
 					posteriorCounter.binaryRuleCounter, false);
 
-			 int beforelexiconsize = posteriorCounter.wordToTagCounters
-			 .totalSize();
-			 normalizeLexicon(posteriorCounter.wordToTagCounters);
-			 posteriorCounter.wordToTagCounters = Counters
-			 .cleanCounter(posteriorCounter.wordToTagCounters);
-			 System.out.println("Before clean wordToTagCounters: "
-			 + beforelexiconsize + "  After: "
-			 + posteriorCounter.wordToTagCounters.totalSize());
+			int beforelexiconsize = posteriorCounter.wordToTagCounters
+					.totalSize();
+			normalizeLexicon(posteriorCounter.wordToTagCounters);
+			posteriorCounter.wordToTagCounters = Counters
+					.cleanCounter(posteriorCounter.wordToTagCounters);
+			System.out.println("Before clean wordToTagCounters: "
+					+ beforelexiconsize + "  After: "
+					+ posteriorCounter.wordToTagCounters.totalSize());
 			normalizeLexicon(posteriorCounter.wordToTagCounters);
 			newLexicon = new SimpleLexicon(posteriorCounter.wordToTagCounters);
 		}
