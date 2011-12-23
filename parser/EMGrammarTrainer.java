@@ -26,7 +26,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar baseGrammar;
 	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
-	public static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
+	public static long[] randomSeeds = new long[] { 3, 8, 1, 1 };
 	static int[] EMTrainingTimes = new int[] { 11, 11, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
@@ -45,8 +45,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				grammar, lexicon);
 		for (int smcycle = 0; smcycle < 1; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
-			if (smcycle > 0 && randomSeeds[smcycle] != randomSeeds[smcycle - 1])
-				GrammarSpliter.random = new Random(randomSeeds[smcycle]);
+			// if (smcycle > 0 && randomSeeds[smcycle] != randomSeeds[smcycle -
+			// 1])
+			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
 			pair = trainGrammar(smcycle, pair.getFirst(), pair.getSecond());
 			System.out.println("SM cycle " + smcycle + " done.\n");
 		}
@@ -359,16 +360,15 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			Counter<UnaryRule> originalUnaryCounter = new Counter<UnaryRule>();
 			Counter<BinaryRule> originalBinaryCounter = new Counter<BinaryRule>();
 			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
-				originalUnaryCounter.incrementCount(getOriginalRule(unaryRule),
+				originalUnaryCounter.incrementCount(getBaseRule(unaryRule),
 						postCounter.unaryRuleCounter.getCount(unaryRule));
 			}
 			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
-				originalBinaryCounter.incrementCount(
-						getOriginalRule(binaryRule),
+				originalBinaryCounter.incrementCount(getBaseRule(binaryRule),
 						postCounter.binaryRuleCounter.getCount(binaryRule));
 			}
 			for (UnaryRule unaryRule : postCounter.unaryRuleCounter.keySet()) {
-				UnaryRule original = getOriginalRule(unaryRule);
+				UnaryRule original = getBaseRule(unaryRule);
 				postCounter.unaryRuleCounter.setCount(
 						unaryRule,
 						postCounter.unaryRuleCounter.getCount(unaryRule)
@@ -378,7 +378,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 
 			}
 			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
-				BinaryRule originalRule = getOriginalRule(binaryRule);
+				BinaryRule originalRule = getBaseRule(binaryRule);
 				postCounter.binaryRuleCounter.setCount(
 						binaryRule,
 						postCounter.binaryRuleCounter.getCount(binaryRule)
@@ -445,12 +445,11 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			Counter<UnaryRule> originalUnaryCounter = new Counter<UnaryRule>();
 			Counter<BinaryRule> originalBinaryCounter = new Counter<BinaryRule>();
 			for (UnaryRule unaryRule : newGrammar.getUnaryRules()) {
-				originalUnaryCounter.incrementCount(getOriginalRule(unaryRule),
+				originalUnaryCounter.incrementCount(getBaseRule(unaryRule),
 						newGrammar.unaryRuleCounter.getCount(unaryRule));
 			}
 			for (BinaryRule binaryRule : newGrammar.getBinaryRules()) {
-				originalBinaryCounter.incrementCount(
-						getOriginalRule(binaryRule),
+				originalBinaryCounter.incrementCount(getBaseRule(binaryRule),
 						newGrammar.binaryRuleCounter.getCount(binaryRule));
 			}
 			int matchCount = 0, all = 0;
@@ -480,14 +479,14 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					/ all);
 		}
 
-		private BinaryRule getOriginalRule(BinaryRule binaryRule) {
+		public static BinaryRule getBaseRule(BinaryRule binaryRule) {
 			return new BinaryRule(GrammarSpliter.getBaseState(binaryRule
 					.getParent()), GrammarSpliter.getBaseState(binaryRule
 					.getLeftChild()), GrammarSpliter.getBaseState(binaryRule
 					.getRightChild()));
 		}
 
-		private UnaryRule getOriginalRule(UnaryRule unaryRule) {
+		public static UnaryRule getBaseRule(UnaryRule unaryRule) {
 			return new UnaryRule(GrammarSpliter.getBaseState(unaryRule
 					.getParent()), GrammarSpliter.getBaseState(unaryRule
 					.getChild()));
