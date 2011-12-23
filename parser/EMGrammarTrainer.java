@@ -43,7 +43,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		baseLexicon = lexicon;
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
-		for (int smcycle = 0; smcycle < 1; smcycle++) {
+		for (int smcycle = 0; smcycle < 2; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
 			// if (smcycle > 0 && randomSeeds[smcycle] != randomSeeds[smcycle -
 			// 1])
@@ -102,6 +102,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			splitlexicon = mergeLexicon(splitlexicon, mergeSet);
 			System.out.println(" done.");
 		}
+
+		// smooth
+		splitGrammar = smothGrammar(splitGrammar, spliter);
 		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
 	}
 
@@ -137,6 +140,35 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			BinaryRule newRule = getOriginalRule(binaryRule, mergeSet);
 			binaryCounter.incrementCount(newRule,
 					oldGrammar.binaryRuleCounter.getCount(binaryRule));
+		}
+		return new Grammar(unaryCounter, binaryCounter, false);
+	}
+
+	static double smoothfactor = 0.01;
+
+	private Grammar smothGrammar(Grammar grammar, GrammarSpliter spliter) {
+		Counter<UnaryRule> unaryCounter = new Counter<UnaryRule>();
+		Counter<BinaryRule> binaryCounter = new Counter<BinaryRule>();
+		Counter<UnaryRule> oldUnaryRuleCounter = grammar.unaryRuleCounter;
+		Counter<BinaryRule> oldBinaryRuleCounter = grammar.binaryRuleCounter;
+		for (UnaryRule unaryRule : oldUnaryRuleCounter.keySet()) {
+			UnaryRule original = GrammarTrainingHelper.getBaseRule(unaryRule);
+			double d = (1 - smoothfactor)
+					* oldUnaryRuleCounter.getCount(unaryRule) + smoothfactor
+					* baseGrammar.unaryRuleCounter.getCount(original)
+					/ spliter.getVariance(original.getParent()).size()
+					/ spliter.getVariance(original.getChild()).size();
+			unaryCounter.setCount(unaryRule, d);
+		}
+		for (BinaryRule binaryRule : oldBinaryRuleCounter.keySet()) {
+			BinaryRule original = GrammarTrainingHelper.getBaseRule(binaryRule);
+			double d = (1 - smoothfactor)
+					* oldBinaryRuleCounter.getCount(binaryRule) + smoothfactor
+					* baseGrammar.binaryRuleCounter.getCount(original)
+					/ spliter.getVariance(original.getParent()).size()
+					/ spliter.getVariance(original.getLeftChild()).size()
+					/ spliter.getVariance(original.getRightChild()).size();
+			binaryCounter.setCount(binaryRule, d);
 		}
 		return new Grammar(unaryCounter, binaryCounter, false);
 	}
