@@ -12,6 +12,8 @@ import nlp.util.*;
  * Harness for PCFG Parser project.
  */
 public class PCFGParserTester {
+	static int[] possibleSeeds1 = new int[] { 1, 3 }; // 5, 7
+	static int[] possibleSeeds2 = new int[] { 7, 8 };
 
 	public static void main(String[] args) {
 		// Parse command line flags and arguments
@@ -24,6 +26,7 @@ public class PCFGParserTester {
 		String testMode = "validate";
 		int maxTrainLength = 1000;
 		int maxTestLength = 40;
+		boolean multiTest = false;
 
 		// Update defaults using command line specifications
 		if (argMap.containsKey("-path")) {
@@ -52,6 +55,8 @@ public class PCFGParserTester {
 		if (argMap.containsKey("-quiet")) {
 			verbose = false;
 		}
+		if (argMap.containsKey("-multitest"))
+			multiTest = true;
 
 		System.out.print("Loading training trees (sections 2-21) ... ");
 		List<Tree<String>> trainTrees = readTrees(basePath, 200, 2199,
@@ -71,17 +76,38 @@ public class PCFGParserTester {
 
 		Parser parser;
 		String model = argMap.get("-model");
-		if (model.equalsIgnoreCase("CKY") || model.equalsIgnoreCase("CYK")) {
-			parser = new nlp.parser.CKYParser(trainTrees);
-		} else if (model.equalsIgnoreCase("markov")) {
-			parser = new nlp.parser.CKYParserMarkov(trainTrees);
-
-		} else if (model.equalsIgnoreCase("tester")) {
-			parser = new nlp.parser.CKYParserTester(trainTrees);
+		int testCase = 0;
+		if (multiTest) {
+			// only for split merge
+			for (int i = 0; i < possibleSeeds1.length; i++) {
+				for (int j = 0; j < possibleSeeds2.length; j++) {
+					long[] seeds = new long[] { possibleSeeds1[i],
+							possibleSeeds2[j] };
+					System.out.println("Test Case : " + testCase++);
+					EMGrammarTrainer.randomSeeds = seeds;
+					StringBuilder sb = new StringBuilder();
+					sb.append("Random seeds is ");
+					for (int k = 0; k < seeds.length; k++)
+						sb.append("\t" + seeds[k]);
+					System.out.println(sb.toString());
+					parser = new CKYParserTester(trainTrees);
+					testParser(parser, testTrees, verbose);
+					System.out.println();
+				}
+			}
 		} else {
-			parser = new nlp.parser.BaselineParser(trainTrees);
+			if (model.equalsIgnoreCase("CKY") || model.equalsIgnoreCase("CYK")) {
+				parser = new nlp.parser.CKYParser(trainTrees);
+			} else if (model.equalsIgnoreCase("markov")) {
+				parser = new nlp.parser.CKYParserMarkov(trainTrees);
+
+			} else if (model.equalsIgnoreCase("tester")) {
+				parser = new nlp.parser.CKYParserTester(trainTrees);
+			} else {
+				parser = new nlp.parser.BaselineParser(trainTrees);
+			}
+			testParser(parser, testTrees, verbose);
 		}
-		testParser(parser, testTrees, verbose);
 	}
 
 	private static void testParser(Parser parser, List<Tree<String>> testTrees,

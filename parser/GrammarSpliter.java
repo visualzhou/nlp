@@ -157,6 +157,9 @@ public class GrammarSpliter {
 
 	public static String getOtherLabel(String state) {
 		int markIndex = state.indexOf(LableMark);
+		if (markIndex < 0) {
+			return state;
+		}
 		int index = Integer.parseInt(state.substring(markIndex + 1));
 		if ((index & 1) == 0) {
 			index--;

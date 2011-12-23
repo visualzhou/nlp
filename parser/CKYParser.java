@@ -55,8 +55,8 @@ public class CKYParser implements Parser {
 	@Override
 	public Tree<String> getBestParse(List<String> sentence) {
 		Tree<String> annotatedBestParse = getBestAnnotatedParse(sentence);
-		System.out.println(nlp.ling.Trees.PennTreeRenderer
-				.render(annotatedBestParse));
+		// System.out.println(nlp.ling.Trees.PennTreeRenderer
+		// .render(annotatedBestParse));
 		return TreeAnnotations.unAnnotateTree(annotatedBestParse);
 	}
 

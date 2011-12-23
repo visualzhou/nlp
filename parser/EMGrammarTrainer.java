@@ -26,8 +26,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar baseGrammar;
 	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
-	final static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
-	final static int[] EMTrainingTimes = new int[] { 0, 12, 1, 1 };
+	public static long[] randomSeeds = new long[] { 3, 1, 1, 1 };
+	static int[] EMTrainingTimes = new int[] { 11, 11, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -43,9 +43,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		baseLexicon = lexicon;
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
-		for (int smcycle = 0; smcycle < 2; smcycle++) {
+		for (int smcycle = 0; smcycle < 1; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
-			GrammarSpliter.random = new Random(randomSeeds[smcycle]);
+			if (smcycle > 0 && randomSeeds[smcycle] != randomSeeds[smcycle - 1])
+				GrammarSpliter.random = new Random(randomSeeds[smcycle]);
 			pair = trainGrammar(smcycle, pair.getFirst(), pair.getSecond());
 			System.out.println("SM cycle " + smcycle + " done.\n");
 		}
@@ -85,6 +86,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		if (EMTrainingTimes[cycle] > 0) {
 			// 3. Merge
 			// 3.1 measure merge loss
+			System.out.print("Merging ... ");
 			RelativeProbabilityComputer relativeProbabilityComputer = new RelativeProbabilityComputer();
 			for (BinaryTree<String> binaryTree : binaryTrees) {
 				binaryTree.preOrdertraverse(relativeProbabilityComputer);
@@ -97,6 +99,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			Set<String> mergeSet = mergeLossMeasurer.getMergeSet();
 			splitGrammar = mergeGrammar(splitGrammar, mergeSet);
 			splitlexicon = mergeLexicon(splitlexicon, mergeSet);
+			System.out.println(" done.");
 		}
 		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
 	}
@@ -241,7 +244,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				if (d == null) {
 					lossMap.put(originalLabel, newsum / sum);
 				} else {
-					lossMap.put(originalLabel, d * (newsum / sum));
+					d *= newsum / sum;
+					if (d.isNaN())
+						d = 0.0;
+					lossMap.put(originalLabel, d);
 				}
 				// newsum / sum < 1
 				mark[j] = true;
@@ -335,6 +341,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			normalizeGrammar(posteriorCounter);
 			newGrammar = new Grammar(posteriorCounter.unaryRuleCounter,
 					posteriorCounter.binaryRuleCounter, false);
+			// checkGrammarConsistency(newGrammar);
 
 			int beforelexiconsize = posteriorCounter.wordToTagCounters
 					.totalSize();
@@ -365,9 +372,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				postCounter.unaryRuleCounter.setCount(
 						unaryRule,
 						postCounter.unaryRuleCounter.getCount(unaryRule)
-								/ originalUnaryCounter.getCount(original)
 								* unsplitGrammar.unaryRuleCounter
-										.getCount(original));
+										.getCount(original)
+								/ originalUnaryCounter.getCount(original));
 
 			}
 			for (BinaryRule binaryRule : postCounter.binaryRuleCounter.keySet()) {
@@ -375,11 +382,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				postCounter.binaryRuleCounter.setCount(
 						binaryRule,
 						postCounter.binaryRuleCounter.getCount(binaryRule)
-								/ originalBinaryCounter.getCount(originalRule)
 								* unsplitGrammar.binaryRuleCounter
-										.getCount(originalRule));
+										.getCount(originalRule)
+								/ originalBinaryCounter.getCount(originalRule));
 			}
-			// checkGrammarConsistency(newGrammar);
 		}
 
 		private void normalizeLexicon(
@@ -398,9 +404,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 				for (String tag : vCounter.keySet()) {
 					String originalTag = GrammarSpliter.getBaseState(tag);
 					double score = vCounter.getCount(tag)
-							/ originalw2tCounters.getCount(word, originalTag)
 							* unsplitLexicon.wordToTagCounters.getCount(word,
-									originalTag);
+									originalTag)
+							/ originalw2tCounters.getCount(word, originalTag);
 					wordToTagCounters.setCount(word, tag, score);
 				}
 			}
@@ -497,7 +503,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					String word = tree.left.getBaseLabel();
 					for (int i = 0; i < tree.lableSize(); i++) {
 						String tag = tree.getLabel(i);
-						tree.SetIn(i, lexicon.scoreTagging(word, tag));
+						tree.SetIn(i, lexicon.relativeScore(word, tag));
 					}
 					return;
 				}
@@ -597,7 +603,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 					for (int i = 0; i < tree.lableSize(); i++) {
 						String tag = tree.getLabel(i);
 						double score = tree.getOut(i) * factor
-								* lexicon.scoreTagging(word, tag);
+								* lexicon.relativeScore(word, tag);
 						if (score == Double.NaN)
 							score = 0.0;
 						wordToTagCounters.incrementCount(word, tag, score);

@@ -36,7 +36,7 @@ public class SimpleLexicon extends Lexicon {
 	/**
 	 * Assume all words are seen in the past Used in EM training
 	 */
-	public double scoreTagging(String word, String tag) {
+	public double relativeScore(String word, String tag) {
 		double d = wordToTagRelativeCounters.getCount(word, tag);
 		return d;
 
