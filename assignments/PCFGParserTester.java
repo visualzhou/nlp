@@ -12,8 +12,8 @@ import nlp.util.*;
  * Harness for PCFG Parser project.
  */
 public class PCFGParserTester {
-	static int[] possibleSeeds1 = new int[] { 1, 3 }; // 5, 7
-	static int[] possibleSeeds2 = new int[] { 7, 8 };
+	static int[] possibleSeeds1 = new int[] { 13, 14, 15, 16 }; // 5, 7
+	static int[] possibleSeeds2 = new int[] { 7, 8, 9, 10, 11, 12, 13, 14 };
 
 	public static void main(String[] args) {
 		// Parse command line flags and arguments

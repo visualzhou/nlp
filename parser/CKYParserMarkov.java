@@ -14,7 +14,7 @@ public class CKYParserMarkov extends CKYParser {
 
 	@Override
 	protected List<Tree<String>> annotateTrees(List<Tree<String>> trees) {
-		TreeAnnotations.horizontal = 2;
+		TreeAnnotations.horizontal = 100;
 		TreeAnnotations.useparent = true;
 		List<Tree<String>> annotatedTrees = new ArrayList<Tree<String>>();
 		for (Tree<String> tree : trees) {

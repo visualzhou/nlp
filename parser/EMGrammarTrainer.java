@@ -26,8 +26,8 @@ public class EMGrammarTrainer implements GrammarBuilder {
 	Grammar baseGrammar;
 	SimpleLexicon baseLexicon;
 	List<Tree<String>> trainTrees;
-	public static long[] randomSeeds = new long[] { 3, 8, 1, 1 };
-	static int[] EMTrainingTimes = new int[] { 11, 11, 1, 1 };
+	public static long[] randomSeeds = new long[] { 3, 11, 1, 1 };
+	static int[] EMTrainingTimes = new int[] { 20, 20, 1, 1 };
 
 	public EMGrammarTrainer(List<Tree<String>> trainTrees) {
 		this.trainTrees = trainTrees;
@@ -43,6 +43,9 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		baseLexicon = lexicon;
 		Pair<Grammar, SimpleLexicon> pair = new Pair<Grammar, SimpleLexicon>(
 				grammar, lexicon);
+		// WordTagDump dump = new
+		// WordTagDump(pair.getSecond().wordToTagCounters);
+		// System.out.println(dump.getPopularWords("DT"));
 		for (int smcycle = 0; smcycle < 2; smcycle++) {
 			System.out.println("SM cycle " + smcycle);
 			// if (smcycle > 0 && randomSeeds[smcycle] != randomSeeds[smcycle -
@@ -84,6 +87,10 @@ public class EMGrammarTrainer implements GrammarBuilder {
 			splitlexicon = helper.getNewLexicon();
 		}
 
+		// WordTagDump dump2 = new WordTagDump(splitlexicon.wordToTagCounters);
+		// System.out.println(dump2.getPopularWords("DT^1"));
+		// System.out.println(dump2.getPopularWords("DT^2"));
+
 		if (EMTrainingTimes[cycle] > 0) {
 			// 3. Merge
 			// 3.1 measure merge loss
@@ -104,7 +111,7 @@ public class EMGrammarTrainer implements GrammarBuilder {
 		}
 
 		// smooth
-		splitGrammar = smothGrammar(splitGrammar, spliter);
+		// splitGrammar = smothGrammar(splitGrammar, spliter);
 		return new Pair<Grammar, SimpleLexicon>(splitGrammar, splitlexicon);
 	}
 
