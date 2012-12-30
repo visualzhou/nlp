@@ -1,6 +1,6 @@
 package nlp.app;
 
-import nlp.assignments.POSTaggerTester;
+import nlp.assignments.tagger.POSTaggerTester;
 
 public class POSTagger {
 

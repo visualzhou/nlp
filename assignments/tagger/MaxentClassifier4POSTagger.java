@@ -1,10 +1,9 @@
-package nlp.assignments;
+package nlp.assignments.tagger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import nlp.assignments.POSTaggerTester.LabeledLocalTrigramContext;
 import nlp.classify.FeatureExtractor;
 import nlp.classify.LabeledInstance;
 import nlp.util.BoundedList;
@@ -19,7 +18,7 @@ public class MaxentClassifier4POSTagger {
 			FeatureExtractor<String, String> {
 		List<String> caredTags = Arrays.asList(new String[] {
 				// POSTaggerTester.START_TAG, "NN", "NNP", "NNS", "NNPS", "``" });
-				POSTaggerTester.START_TAG});
+				POSTagger.START_TAG});
 		@Override
 		public Counter<String> extractFeatures(String instance) {
 			int tagSpPosition, posSpPosition;
