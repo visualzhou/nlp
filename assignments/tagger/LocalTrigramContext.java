@@ -19,6 +19,14 @@ public class LocalTrigramContext {
 	public String getCurrentWord() {
 		return words.get(position);
 	}
+	
+    public String getPreviousWord() {
+        return words.get(position - 1);
+    }
+
+    public String getPreviousPreviousWord() {
+        return words.get(position - 2);
+    }
 
 	public int getPosition() {
 		return position;

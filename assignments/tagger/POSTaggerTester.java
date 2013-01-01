@@ -212,10 +212,11 @@ public class POSTaggerTester {
 			String modelString = argMap.get("-model");
 			if (modelString.equalsIgnoreCase("base")) {
 				localTrigramScorer = new MostFrequentTagScorer(false);
-			}
-			if (modelString.equalsIgnoreCase("trigram")) {
+			} else if (modelString.equalsIgnoreCase("trigram")) {
 				localTrigramScorer = new TrigramTagScorer();
-			}
+			} else if (modelString.equalsIgnoreCase("memm")) {
+                localTrigramScorer = new TrigramMEMMScorer("features.txt");
+            }
 		} else {
 			localTrigramScorer = new MostFrequentTagScorer(false);
 		}

@@ -17,7 +17,7 @@ public class MaxEntModel {
 	PrintStream featureWriter = null;
 	GISModel model = null;
 	int cutoff = 4;
-	int iterations = 100;
+	int iterations = 50;
 
 	/**
 	 *  creates a new maximum entropy model.
